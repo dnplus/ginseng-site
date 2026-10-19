@@ -2,7 +2,9 @@
 
 [GitHub 原始碼](https://github.com/dnplus/ginseng-site)
 
-部署目標：`ginseng.dnplus.dev`；Workers 預覽目標：`ginseng-try-catch.dnplus.workers.dev`。網域設定已備妥，目前等待 Wrangler 重新登入、建立遠端 D1 與 Access 後部署。
+已部署：[ginseng.dnplus.dev](https://ginseng.dnplus.dev) · [Workers 預覽](https://ginseng-try-catch.dnplus.workers.dev)。
+
+2026-10-19 已建立專用 D1 並套用 migrations。首頁與表單可公開使用；目前 `CF_ACCESS_AUD` 未設定，後台頁面與匯出一律拒絕存取，等待具備 Access 管理權限後再開通管理者登入。
 
 從 ChatGPT Sites 完整下載後，改成獨立的 Cloudflare Workers 專案。保留原網站畫面、圖片、合作表單、電子報訂閱、退訂、管理工作站與 CSV 匯出。
 
@@ -37,7 +39,7 @@ pnpm test:smoke
 ## 部署到你的 Cloudflare 帳戶
 
 1. 執行 `pnpm exec wrangler login`，再以 `pnpm exec wrangler whoami` 確認帳戶。
-2. 執行 `pnpm db:create`。將返回的 D1 UUID 填入 `wrangler.jsonc` 的 `d1_databases[0].database_id`，替換僅供本地使用的 placeholder。
+2. 本專案已綁定 `ginseng-try-catch` D1。若部署到其他帳號，先執行 `pnpm db:create`，再將新的 D1 UUID 填入 `wrangler.jsonc` 的 `d1_databases[0].database_id`。
 3. 在 Cloudflare Zero Trust 建立 Self-hosted Access application，使用同一 application 保護實際部署主機上的 `/studio`、`/studio/*`、`/api/studio/*`，Allow policy 限制為管理者 Email。如果使用 workers.dev 和自訂網域，必須各自加入對應 hostname/path。
 4. 在 `wrangler.jsonc` 設定 `SITE_URL` 為實際 HTTPS 網址、`CF_ACCESS_TEAM_DOMAIN` 為完整的 `https://<team>.cloudflareaccess.com`、`CF_ACCESS_AUD` 為該 application 的 AUD。
 5. 執行 `pnpm exec wrangler secret put STUDIO_OWNER_EMAIL`，輸入允許管理後台的 Email。不可放在前端程式或提交到 Git 的檔案。
@@ -51,7 +53,7 @@ JWT 驗證會檢查 Cloudflare 公開金鑰簽章、issuer、AUD、有效期限�
 
 ## 資料與功能
 
-- `/`：個人介紹、PA Cafe、Genio One、YouTube／Threads／Instagram、合作聯繫及電子報。影片區由 Worker 讀取頻道 RSS（`lib/youtube.ts`），每個 isolate 快取 15 分鐘；RSS 無法取得時改用內建清單。Nunito Sans 由本站提供，Noto Sans TC 來自 Google Fonts，影片縮圖來自 i.ytimg.com。
+- `/`：個人介紹、PA Cafe、Genio One、YouTube／Threads／Instagram、合作聯繫及電子報。影片區由 Worker 讀取頻道 RSS；RSS 無法使用時讀取 YouTube 公開影片頁（`lib/youtube.ts`），每個 isolate 快取 15 分鐘；兩個來源都無法取得時會標示並顯示內建清單（最近更新：2026-10-19；備用清單不顯示觀看次數）。Nunito Sans 由本站提供，Noto Sans TC 來自 Google Fonts，影片縮圖來自 i.ytimg.com。
 - `/studio`：管理工作站，顯示最近資料並可匯出 CSV。
 - `/unsubscribe?token=...`：確認退訂；每位訂閱者的網址包含於 CSV。
 - `/privacy`：資料使用說明。

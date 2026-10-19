@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { FALLBACK_VIDEOS, latestVideos, parseFeed } from '../lib/youtube.ts';
+import { FALLBACK_VIDEOS, latestVideos, parseFeed, parseChannelPage } from '../lib/youtube.ts';
 
 const entry = (id: string, title: string, extra = '') => `<entry>
   <yt:videoId>${id}</yt:videoId>
@@ -34,6 +34,19 @@ test('an unreachable feed still yields videos so the works section never renders
   const failing = (async () => { throw new Error('network down'); }) as unknown as typeof fetch;
   const originalError = console.error;
   console.error = () => {};
-  try { assert.deepEqual(await latestVideos(failing), FALLBACK_VIDEOS); }
+  try { assert.deepEqual(await latestVideos(failing), FALLBACK_VIDEOS.map(video => ({...video, isFallback: true, views: null}))); }
   finally { console.error = originalError; }
+});
+
+
+test('public channel page supplies current videos when RSS is unavailable without inventing publish dates', () => {
+  const video = {contentId: 'RmG6Nr_ZUsA', contentType: 'LOCKUP_CONTENT_TYPE_VIDEO', metadata: {lockupMetadataViewModel: {title: {content: '最新影片'}, metadata: {contentMetadataViewModel: {metadataRows: [{metadataParts: [{text: {content: '262'}, accessibilityLabel: '觀看次數：262次'}, {text: {content: '19 小時前'}}]}]}}}}};
+  const html = `<script>var ytInitialData = ${JSON.stringify({items: [{lockupViewModel: video}]})};</script>`;
+  assert.deepEqual(parseChannelPage(html), [{id: 'RmG6Nr_ZUsA', title: '最新影片', summary: '', published: null, publishedLabel: '19 小時前', views: 262}]);
+});
+
+test('channel parser ignores unrelated JSON, playlists and malformed video ids', () => {
+  assert.deepEqual(parseChannelPage('<script>var unrelated = {};</script>'), []);
+  const models = [{contentId: 'abcdefghijk', contentType: 'PLAYLIST'}, {contentId: '<script>', contentType: 'LOCKUP_CONTENT_TYPE_VIDEO'}];
+  assert.deepEqual(parseChannelPage(`<script>var ytInitialData = ${JSON.stringify(models.map(lockupViewModel => ({lockupViewModel})))};</script>`), []);
 });

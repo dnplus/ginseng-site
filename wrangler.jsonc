@@ -15,8 +15,7 @@
   "d1_databases": [{
     "binding": "DB",
     "database_name": "ginseng-try-catch",
-    // Local-only placeholder. Replace with the UUID from pnpm db:create before deploying.
-    "database_id": "00000000-0000-4000-8000-000000000000",
+    "database_id": "3c590143-3181-4838-805a-8429fcbeed36",
     "migrations_dir": "migrations"
   }],
   "send_email": [{

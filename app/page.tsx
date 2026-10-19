@@ -14,7 +14,8 @@ function ago(iso: string) {
   if (days > -60) return relative.format(Math.round(days / 7), 'week');
   return relative.format(Math.round(days / 30), 'month');
 }
-const meta = (video: Video) => [ago(video.published), video.views === null ? null : `${views.format(video.views)} 次觀看`].filter(Boolean).join('，');
+const videoAge = (video: Video) => video.published ? ago(video.published) : video.publishedLabel;
+const meta = (video: Video) => [videoAge(video), video.views === null ? null : `${views.format(video.views)} 次觀看`].filter(Boolean).join('，');
 const external = {target: '_blank', rel: 'noopener noreferrer'} as const;
 
 function Plaque() {
@@ -53,7 +54,7 @@ export default async function Home() {
             </nav>
             <a className="fresh" href={watchUrl(featured.id)} {...external}>
               <img src={thumbnail(featured.id, 'mqdefault')} alt="" width="320" height="180" loading="lazy"/>
-              <span><small>剛上片・{ago(featured.published)}</small>{featured.title}</span>
+              <span><small>最新影片{videoAge(featured) ? `・${videoAge(featured)}` : ''}</small>{featured.title}</span>
             </a>
           </div>
           <div className="mascot" aria-hidden="true">
@@ -85,7 +86,7 @@ export default async function Home() {
     <section className="videos" id="videos" aria-labelledby="videos-title">
       <div className="wrap">
         <div className="videos-head">
-          <div><p className="section-sticker">創作與實驗</p><h2 id="videos-title">最近的影片</h2><p>AI 工具實測、Agent 工作流，還有產業的一些觀察。新片上架，這裡就會跟著更新。</p></div>
+          <div><p className="section-sticker">創作與實驗</p><h2 id="videos-title">最近的影片</h2><p>AI 工具實測、Agent 工作流，還有產業的一些觀察。{featured.isFallback ? 'YouTube 暫時無法更新，目前顯示備用清單；最新內容請看頻道。' : '每 15 分鐘更新一次頻道影片。'}</p></div>
           <a className="pill-link" href={CHANNEL_URL} {...external}>YouTube 頻道 <ArrowUpRight size={17}/></a>
         </div>
         <div className="videos-grid">
