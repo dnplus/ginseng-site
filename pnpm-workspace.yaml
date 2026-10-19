@@ -1,0 +1,10 @@
+storeDir: .pnpm-store
+cacheDir: .pnpm-store/cache
+strictDepBuilds: true
+allowBuilds:
+  esbuild: true
+  fsevents: true
+  sharp: true
+  workerd: true
+overrides:
+  miniflare>sharp: 0.35.4
