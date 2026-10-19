@@ -2,6 +2,8 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "ginseng-try-catch",
   "main": "./worker.ts",
+  "account_id": "7910ab8eac2e72cc2c36430f438df708",
+  "routes": [{"pattern": "ginseng.dnplus.dev", "custom_domain": true}],
   "compatibility_date": "2026-05-15",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
@@ -23,8 +25,8 @@
     "allowed_destination_addresses": ["dnplus@mail.grokbot.com"]
   }],
   "vars": {
-    "SITE_URL": "",
-    "CF_ACCESS_TEAM_DOMAIN": "",
+    "SITE_URL": "https://ginseng.dnplus.dev",
+    "CF_ACCESS_TEAM_DOMAIN": "https://dnplus.cloudflareaccess.com",
     "CF_ACCESS_AUD": ""
   }
 }

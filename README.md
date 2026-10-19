@@ -1,5 +1,9 @@
 # 人蔘 Try Catch
 
+[GitHub 原始碼](https://github.com/dnplus/ginseng-site)
+
+部署目標：`ginseng.dnplus.dev`；Workers 預覽目標：`ginseng-try-catch.dnplus.workers.dev`。網域設定已備妥，目前等待 Wrangler 重新登入、建立遠端 D1 與 Access 後部署。
+
 從 ChatGPT Sites 完整下載後，改成獨立的 Cloudflare Workers 專案。保留原網站畫面、圖片、合作表單、電子報訂閱、退訂、管理工作站與 CSV 匯出。
 
 使用既有 Vinext / React / Cloudflare Vite plugin，在 Workers 執行 SSR 與 API；D1 保存訂閱、合作詢問和短期限流紀錄。後台使用 Cloudflare Access JWT 驗證。Sites 的登入、連接器和建置腳本已移除。
@@ -41,13 +45,13 @@ pnpm test:smoke
 
 替換 D1 UUID 也會改變本地資料庫識別；之後繼續本地開發前請再執行 `pnpm db:migrate`，舊的本地測試資料不會自動移入新識別的資料庫。
 
-`pnpm deploy:dry-run` 只產生部署檢核產物。`preview_urls` 已關閉，避免額外的預覽網址增加 Access 配置負擔。
+`pnpm deploy:dry-run` 只產生部署檢核產物。穩定預覽使用 `ginseng-try-catch.dnplus.workers.dev`；`preview_urls`（每版額外產生的網址）保持關閉，避免增加未受 Access 保護的後台入口。
 
 JWT 驗證會檢查 Cloudflare 公開金鑰簽章、issuer、AUD、有效期限及管理者 Email；不接受 caller 提供的 Email 或 Sites 登入標頭。設定缺漏或驗證失敗時後台一律拒絕，管理頁及匯出回應不會被快取。
 
 ## 資料與功能
 
-- `/`：個人介紹、YouTube、Genio One、合作聯繫及電子報。影片區由 Worker 讀取頻道 RSS（`lib/youtube.ts`），每個 isolate 快取 15 分鐘；RSS 無法取得時改用內建清單。Nunito Sans 由本站提供，Noto Sans TC 來自 Google Fonts，影片縮圖來自 i.ytimg.com。
+- `/`：個人介紹、PA Cafe、Genio One、YouTube／Threads／Instagram、合作聯繫及電子報。影片區由 Worker 讀取頻道 RSS（`lib/youtube.ts`），每個 isolate 快取 15 分鐘；RSS 無法取得時改用內建清單。Nunito Sans 由本站提供，Noto Sans TC 來自 Google Fonts，影片縮圖來自 i.ytimg.com。
 - `/studio`：管理工作站，顯示最近資料並可匯出 CSV。
 - `/unsubscribe?token=...`：確認退訂；每位訂閱者的網址包含於 CSV。
 - `/privacy`：資料使用說明。
