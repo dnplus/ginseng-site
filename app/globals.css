@@ -314,6 +314,7 @@ textarea { min-height: 140px; resize: vertical; }
 .projects .project { margin-top: 28px; }
 .project-pa { background: var(--paper); border-color: var(--leaf-dk); }
 .project-pa .project-icon { background: var(--blush); }
+.project-urai .project-icon { background: #e6dcf7; color: #6a48c8; }
 @media (max-width: 600px) {
   .projects { padding: 56px 0; }
   .hero-socials { flex-direction: column; gap: 10px; }
