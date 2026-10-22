@@ -53,7 +53,7 @@ JWT 驗證會檢查 Cloudflare 公開金鑰簽章、issuer、AUD、有效期限�
 
 ## 資料與功能
 
-- `/`：個人介紹、PA Cafe、Genio One、YouTube／Threads／Instagram、合作聯繫及電子報。影片區由 Worker 讀取頻道 RSS；RSS 無法使用時讀取 YouTube 公開影片頁（`lib/youtube.ts`），每個 isolate 快取 15 分鐘；兩個來源都無法取得時會標示並顯示內建清單（最近更新：2026-10-19；備用清單不顯示觀看次數）。Nunito Sans 由本站提供，Noto Sans TC 來自 Google Fonts，影片縮圖來自 i.ytimg.com。
+- `/`：個人介紹、PA Cafe、你的 AI 夥伴風格指南、Genio One、YouTube／Threads／Instagram、合作聯繫及電子報。影片區由 Worker 讀取頻道 RSS；RSS 無法使用時讀取 YouTube 公開影片頁（`lib/youtube.ts`），每個 isolate 快取 15 分鐘；兩個來源都無法取得時會標示並顯示內建清單（最近更新：2026-10-19；備用清單不顯示觀看次數）。Nunito Sans 由本站提供，Noto Sans TC 來自 Google Fonts，影片縮圖來自 i.ytimg.com。
 - `/studio`：管理工作站，顯示最近資料並可匯出 CSV。
 - `/unsubscribe?token=...`：確認退訂；每位訂閱者的網址包含於 CSV。
 - `/privacy`：資料使用說明。
@@ -79,6 +79,7 @@ D 版色票與字型依據 ARS 的 [視覺規格](https://github.com/dnplus/agen
 - Threads：https://www.threads.com/@ginsengtrycatch
 - Instagram：https://www.instagram.com/ginsengtrycatch/
 - PA Cafe：https://pacafe.dnplus.dev
+- 你的 AI 夥伴風格指南：https://urai.dnplus.dev
 - Genio One：https://genio.sh
 
 原始吉祥物與人物剪影保留；影片區使用 YouTube 影片縮圖。

@@ -1,4 +1,4 @@
-import { ArrowUpRight, Coffee, Menu, Play, Terminal, PlaySquare, MessageCircle, Camera } from 'lucide-react';
+import { ArrowUpRight, Coffee, Menu, Play, Sparkles, Terminal, PlaySquare, MessageCircle, Camera } from 'lucide-react';
 import { ContactForm, NewsletterForm } from './components/forms';
 import { CHANNEL_URL, latestVideos, thumbnail, watchUrl, type Video } from '@/lib/youtube';
 
@@ -74,6 +74,11 @@ export default async function Home() {
           <span className="project-icon"><Coffee size={28}/></span>
           <div><p className="project-kicker">個人專案 · Agent 協作小屋</p><h3>PA Cafe</h3><p>替 AI Agent 開一間咖啡廳。把任務、協作與工作狀態，放進有角色、有生活感的小屋裡，探索和 Agent 一起工作的方式。</p></div>
           <div className="project-links"><a className="button primary" href="https://pacafe.dnplus.dev" {...external}>逛逛 PA Cafe <ArrowUpRight size={17}/></a><a className="quiet-link" href={watchUrl('tbj0Azzlguw')} {...external}>看 PA Cafe 開發日誌</a></div>
+        </article>
+        <article className="project project-urai">
+          <span className="project-icon"><Sparkles size={26}/></span>
+          <div><p className="project-kicker">個人專案 · AI 搭檔角色卡</p><h3>你的 AI 夥伴風格指南</h3><p>讓你的 Agent 讀完你們的對話，說說你是哪種搭檔：16 型、卡片稀有度，再抽一張能和朋友比一比的角色卡。</p></div>
+          <div className="project-links"><a className="pill-link" href="https://urai.dnplus.dev" {...external}>測測你的搭檔風格 <ArrowUpRight size={17}/></a></div>
         </article>
         <article className="project">
           <span className="project-icon"><Terminal size={26}/></span>
