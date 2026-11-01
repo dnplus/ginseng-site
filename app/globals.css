@@ -400,3 +400,7 @@ a.hub-card:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(-
 @media (max-width: 600px) { .post-card { grid-template-columns: 1fr; } .prose { font-size: 17px; } }
 .section-page.blog { padding-bottom: 88px; }
 .feed-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 14px; font-weight: 700; color: var(--leaf-dk); text-decoration: underline; text-underline-offset: 4px; }
+.newsletter-signup { max-width: 640px; margin-top: 28px; padding: 24px; border: 2px solid var(--leaf-dk); border-radius: 20px; background: var(--leaf-band); box-shadow: 5px 5px 0 var(--leaf-dk); }
+.archive-title { margin-top: 64px; font-size: 30px; }
+.article .newsletter-signup { margin-top: 56px; }
+.confirm-done { display: flex; align-items: center; gap: 8px; font-weight: 800; color: var(--leaf-dk); }

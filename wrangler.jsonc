@@ -22,6 +22,11 @@
     "name": "CONTACT_EMAIL",
     "allowed_sender_addresses": ["ginseng@dnplus.dev"],
     "allowed_destination_addresses": ["dnplus@mail.grokbot.com"]
+  }, {
+    // Newsletter confirmation emails go to any subscriber, so this binding has no destination list; it can only send as
+    // the newsletter address.
+    "name": "NEWSLETTER_EMAIL",
+    "allowed_sender_addresses": ["ginseng@dnplus.dev"]
   }],
   "vars": {
     "SITE_URL": "https://ginseng.dnplus.dev",

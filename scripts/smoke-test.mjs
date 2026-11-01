@@ -82,6 +82,9 @@ try {
   await page('/community', '一起實驗的人，聚在這裡。');
   await page('/en/community', 'Where the tinkerers hang out.');
   await page('/blog', '影片之外，寫下來的部分。');
+  await page('/newsletter', '歷期電子報');
+  await page('/en/newsletter', 'Past issues');
+  await page('/en/privacy', 'Your data, used only where we said.');
   await page('/en/blog', 'The written-down part.');
   for (const [path, type] of [['/feed.xml', 'application/rss+xml'], ['/en/feed.xml', 'application/rss+xml'], ['/sitemap.xml', 'application/xml']]) {
     const response = await fetch(`${origin}${path}`);
@@ -126,15 +129,31 @@ try {
   console.log('PASS protected export denies missing and forged identity');
 
   await post('subscribe', { email, consent: true, website: '' });
-  const initial = await d1(`SELECT email, status, unsubscribe_token, consent_version FROM subscribers WHERE email = ${sqlString(email)}`);
+  const initial = await d1(`SELECT email, status, unsubscribe_token, consent_version, locale, confirm_token FROM subscribers WHERE email = ${sqlString(email)}`);
   assert.equal(initial.length, 1, 'Subscription persisted exactly once.');
-  assert.equal(initial[0].status, 'active');
+  assert.equal(initial[0].status, 'pending', 'A new subscription waits for email confirmation.');
+  assert.equal(initial[0].locale, 'zh-TW');
+  assert.match(initial[0].confirm_token, /^[0-9a-f-]{36}$/);
   assert.match(initial[0].unsubscribe_token, /^[0-9a-f-]{36}$/);
   assert.ok(initial[0].consent_version, 'Subscription records the consent version.');
   await post('subscribe', { email: email.toUpperCase(), consent: true });
   const duplicate = await d1(`SELECT status, unsubscribe_token FROM subscribers WHERE email = ${sqlString(email)}`);
   assert.equal(duplicate.length, 1, 'Duplicate subscription does not create another row.');
   assert.equal(duplicate[0].unsubscribe_token, initial[0].unsubscribe_token, 'Duplicate subscription preserves the unsubscribe link.');
+  assert.equal((await d1(`SELECT confirm_token FROM subscribers WHERE email = ${sqlString(email)}`))[0].confirm_token, initial[0].confirm_token, 'A repeat within the resend window sends no new confirmation.');
+
+  rememberRateKeys('confirm');
+  await post('newsletter/confirm', { token: initial[0].confirm_token });
+  const confirmed = await d1(`SELECT status, confirm_token, confirmed_at FROM subscribers WHERE email = ${sqlString(email)}`);
+  assert.equal(confirmed[0].status, 'active', 'The confirmation link activates the subscription.');
+  assert.equal(confirmed[0].confirm_token, null, 'A confirmation link works once.');
+  assert.ok(confirmed[0].confirmed_at, 'Confirmation time is recorded.');
+  await post('newsletter/confirm', { token: initial[0].confirm_token }, 404);
+  await post('newsletter/confirm', { token: 'not-a-token' }, 400);
+  rememberRateKeys('confirm');
+  await page('/newsletter/confirm?token=x', '確認訂閱人蔘電子報');
+  await page('/en/newsletter/confirm?token=x', 'Confirm your subscription');
+  console.log('PASS double opt-in confirmation');
 
   const inquiry = {
     name: 'Synthetic Smoke Fixture', email, company: 'Example Test',
@@ -151,6 +170,8 @@ try {
   console.log('PASS subscription, duplicate handling, and contact persistence with D1 readback');
 
   await post('subscribe', { email: rejectedEmail, consent: false }, 400);
+  const englishError = await post('subscribe', { email: 'not-an-email', consent: true }, 400, { 'X-Site-Locale': 'en' });
+  assert.equal(englishError.error, 'Please enter a valid email address.', 'English forms get English errors.');
   await post('contact', { ...inquiry, email: rejectedEmail, consent: false }, 400);
   await post('subscribe', { email: rejectedEmail, consent: true }, 403, { Origin: 'https://attacker.example.test' });
   await post('contact', { ...inquiry, email: rejectedEmail, message: 'short' }, 400);
@@ -174,6 +195,15 @@ try {
   await post('unsubscribe', { token: randomUUID() }, 404);
   await post('unsubscribe', { token: 'invalid-token' }, 400);
   console.log('PASS unsubscribe persistence and invalid-token handling');
+
+  await d1(`UPDATE subscribers SET status = 'active' WHERE email = ${sqlString(email)}`);
+  const oneClick = await fetch(`${origin}/api/unsubscribe/one-click?token=${initial[0].unsubscribe_token}`, {method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: 'List-Unsubscribe=One-Click'});
+  assert.equal(oneClick.status, 200, 'One-click unsubscribe accepts a provider POST without Origin.');
+  assert.equal((await d1(`SELECT status FROM subscribers WHERE email = ${sqlString(email)}`))[0].status, 'unsubscribed', 'One-click unsubscribe persisted.');
+  assert.equal((await fetch(`${origin}/api/unsubscribe/one-click?token=${randomUUID()}`, {method: 'POST'})).status, 404);
+  const opened = await fetch(`${origin}/api/unsubscribe/one-click?token=${initial[0].unsubscribe_token}`, {redirect: 'manual'});
+  assert.equal(opened.status, 303, 'Opening the header link in a browser shows the unsubscribe page.');
+  console.log('PASS RFC 8058 one-click unsubscribe');
 } finally {
   const deletes = [
     `DELETE FROM subscribers WHERE email IN (${fixtureEmails})`,

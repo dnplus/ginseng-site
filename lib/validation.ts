@@ -1,4 +1,4 @@
-export const CONSENT_VERSION = '2026-10-07';
+export const CONSENT_VERSION = '2026-11-01';
 export const TOPICS = ['AI 導入 / 技術顧問', '企業內訓 / 分享邀約', '品牌合作 / 內容企劃', '其他有趣的可能'];
 export function cleanEmail(value: unknown) {
   if (typeof value !== 'string') return null;

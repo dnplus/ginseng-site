@@ -69,7 +69,11 @@ JWT 驗證會檢查 Cloudflare 公開金鑰簽章、issuer、AUD、有效期限�
 
 這次下載取得原始碼與靜態資產，**不包含 Sites 正式 D1 的訂閱者或合作紀錄**。新的 D1 從空資料表開始。原 Sites 的發布與存取設定沒有更動。
 
-電子報維持明確同意的 single opt-in。電子報寄送服務尚未串接；匯出後寄送電子報時需保留每位訂閱者的退訂入口。
+電子報採雙重確認（double opt-in，migration `0003`）：表單送出後訂閱者為 `pending`，系統以 `NEWSLETTER_EMAIL` binding（只允許 `ginseng@dnplus.dev` 寄件、不限收件人）寄確認信，點 `/newsletter/confirm` 的按鈕後才變成 `active`；連結 7 天有效，同一信箱 10 分鐘內不重寄。舊的 single opt-in 訂閱者維持 `active`。訂閱者會記錄語言（`locale`）與來源（`source`）。
+
+每封電子報都要帶 `lib/newsletter-email.ts` 的 `listUnsubscribeHeaders()`（RFC 8058 一鍵退訂，目標是 `/api/unsubscribe/one-click`）。群發服務尚未串接；後台 CSV 匯出含語言、退訂網址與一鍵退訂網址。歷期電子報放在 `content/newsletters/<語系>/<slug>.md`（格式同文章），顯示於 `/newsletter`。
+
+API 錯誤訊息依表單送出的 `X-Site-Locale` 回傳中文或英文（`lib/messages.ts`）；隱私說明有 `/privacy` 與 `/en/privacy`。
 
 ## 視覺識別
 
