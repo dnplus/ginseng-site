@@ -1,5 +1,6 @@
 import { database, json } from '@/lib/server';
 import { UNSUBSCRIBE_SQL } from '@/lib/subscribers';
+import { syncQuietly } from '@/lib/subscriber-sync';
 
 const tokenOf = (request: Request) => { const token = new URL(request.url).searchParams.get('token'); return token && /^[0-9a-f-]{36}$/.test(token) ? token : null; };
 
@@ -11,8 +12,11 @@ export async function POST(request: Request) {
   const token = tokenOf(request);
   if (!token) return json({error: 'invalid token'}, 400);
   try {
-    const result = await database().prepare(UNSUBSCRIBE_SQL).bind(new Date().toISOString(), token).run();
-    return result.meta.changes ? json({ok: true}) : json({error: 'unknown token'}, 404);
+    const db = database();
+    const row = await db.prepare(UNSUBSCRIBE_SQL).bind(new Date().toISOString(), token).first<{email: string}>();
+    if (!row) return json({error: 'unknown token'}, 404);
+    await syncQuietly(db, row.email);
+    return json({ok: true});
   } catch {
     console.error('One-click unsubscribe failed');
     return json({error: 'unavailable'}, 503);

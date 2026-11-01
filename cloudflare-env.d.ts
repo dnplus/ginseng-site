@@ -6,6 +6,10 @@ interface __BaseEnv_Env {
 	NEWSLETTER_EMAIL: SendEmail;
 	ASSETS: Fetcher;
 	SITE_URL: string;
+	RESEND_SEGMENT_ZH_TW: string;
+	RESEND_SEGMENT_EN: string;
+	RESEND_API_KEY?: string;
+	RESEND_WEBHOOK_SECRET?: string;
 	CF_ACCESS_TEAM_DOMAIN: string;
 	CF_ACCESS_AUD: string;
 	STUDIO_OWNER_EMAIL: string;

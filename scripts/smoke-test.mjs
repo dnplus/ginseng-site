@@ -126,6 +126,12 @@ try {
     assert.equal(spoofed.status, 403, 'Forged identity headers cannot export data.');
     assert.ok(!((await spoofed.text()).includes(email)), 'Denied response contains no fixture data.');
   }
+  for (const action of ['/api/studio/resend/sync', '/api/studio/resend/broadcast']) {
+    const denied = await fetch(`${origin}${action}`, {method: 'POST', headers: {Origin: origin}, body: new URLSearchParams({locale: 'en', slug: 'x'})});
+    assert.equal(denied.status, 403, `${action} requires the studio owner`);
+  }
+  const webhook = await fetch(`${origin}/api/webhooks/resend`, {method: 'POST', headers: {'svix-id': 'x', 'svix-timestamp': '1', 'svix-signature': 'v1,x'}, body: '{}'});
+  assert.equal(webhook.status, 503, 'The Resend webhook refuses everything until its secret is configured.');
   console.log('PASS protected export denies missing and forged identity');
 
   await post('subscribe', { email, consent: true, website: '' });
@@ -153,6 +159,7 @@ try {
   rememberRateKeys('confirm');
   await page('/newsletter/confirm?token=x', '確認訂閱人蔘電子報');
   await page('/en/newsletter/confirm?token=x', 'Confirm your subscription');
+  assert.equal((await d1(`SELECT resend_sync FROM subscribers WHERE email = ${sqlString(email)}`))[0].resend_sync, 'pending', 'Without Resend configured, the change waits for the studio sync.');
   console.log('PASS double opt-in confirmation');
 
   const inquiry = {
