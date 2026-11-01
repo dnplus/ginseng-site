@@ -62,6 +62,7 @@ JWT 驗證會檢查 Cloudflare 公開金鑰簽章、issuer、AUD、有效期限�
   - 從 ARS 集數產生草稿：`node --experimental-strip-types scripts/episode-to-post.mjs <ARS>/src/episodes/ginseng-channel/ep087/episode.ts --youtube <id> --date <首播日>`。
 - `/ep/<集數>`：影片 QR code 與說明欄用的固定短網址（`/ep/87`、`/ep/087`、`/ep/EP087` 都可）。本站有該集文章就導過去，否則導到 `lib/episodes.ts` 的 Notion 舊文，再不然導到文章列表；用 302，搬家後同一個短網址自動換目的地。已發布的 Notion 頁面請保留，舊影片的 QR code 仍指向它們。
 - `/feed.xml`、`/en/feed.xml`：各語系 RSS；`/sitemap.xml` 含各語系 `hreflang`。
+- `/brand/footer.js`：產品與實驗室小工具共用的品牌頁尾（Web Component，樣式在 shadow DOM 裡，不會跟工具本身的 CSS 互相影響）。在工具頁面加 `<script src="https://ginseng.dnplus.dev/brand/footer.js" defer></script>` 與 `<ginseng-footer ref="工具 id"></ginseng-footer>`；連結會帶 `?ref=` 方便看是哪個工具帶來的流量。`lang` 預設跟隨頁面，`theme="dark"` 為深色版。預覽：`/brand/`。工具若有 CSP，`script-src` 要允許本站。
 - `/studio`：管理工作站，顯示最近資料並可匯出 CSV。
 - `/unsubscribe?token=...`：確認退訂；每位訂閱者的網址包含於 CSV。
 - `/privacy`：資料使用說明。
