@@ -28,7 +28,8 @@ const lines = [
   `episode: ${number}`,
   ...(values.youtube ? [`youtube: ${values.youtube}`] : []),
   ...(episode.tags?.length ? [`tags: [${episode.tags.join(', ')}]`] : []),
-  ...(episode.blog?.url ? [`legacyUrl: ${episode.blog.url}`] : []),
+  // New episodes point blog.url at this site's /ep short link; only an older Notion URL is worth keeping.
+  ...(episode.blog?.url && !/\/\/ginseng\.dnplus\.dev\//.test(episode.blog.url) ? [`legacyUrl: ${episode.blog.url}`] : []),
   'draft: true',
   '---',
   '',
