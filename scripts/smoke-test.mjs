@@ -74,6 +74,13 @@ try {
   assert.ok(html.includes('商業合作表單') && html.includes('電子報訂閱'), 'Home includes both interactive forms.');
   assert.ok(!/(?:src|href)="\/(?:@vite\/|@id\/)/.test(html), 'Run this smoke test against the built Worker, not the Vite development server.');
   await page('/privacy', '你的資料，只用在說好的地方。');
+  const english = await page('/en', "Hi, I'm Ginseng.");
+  assert.ok(english.includes('<html lang="en"') && english.includes('Collaboration form') && english.includes('Newsletter signup'), 'English home renders in English with both forms.');
+  assert.ok(html.includes('<html lang="zh-Hant-TW"') && /hreflang="en" href="[^"]*\/en"/i.test(html), 'Home declares its language and links the English version.');
+  await page('/lab', '做出來，先放這裡。');
+  await page('/en/lab', 'Built it? It goes here first.');
+  await page('/community', '一起實驗的人，聚在這裡。');
+  await page('/en/community', 'Where the tinkerers hang out.');
   await page('/unsubscribe', '先在這裡，下車也沒關係。');
   const assetPaths = [...html.matchAll(/\b(?:src|href)="([^"\s]+\.(?:css|js)(?:\?[^"\s]*)?)"/g)]
     .map(match => new URL(match[1].replaceAll('&amp;', '&'), origin))
