@@ -14,6 +14,7 @@ export function SocialIcon({social, size = 17}: {social: Social; size?: number})
 function navItems(locale: Locale) {
   const t = dictionary(locale).nav, at = (path: string) => localePath(locale, path);
   return [
+    {href: at('/blog'), label: t.blog},
     {href: at('/lab'), label: t.lab},
     {href: `${at('/')}#videos`, label: t.videos},
     {href: at('/community'), label: t.community},
@@ -56,7 +57,7 @@ export function SiteFooter({locale, path, available}: {locale: Locale; path: str
   return <footer className="footer">
     <div className="wrap footer-inner">
       <div><a href={localePath(locale, '/')} aria-label={t.homeLabel}><Plaque locale={locale}/></a><p>{t.footer.tagline}</p></div>
-      <nav aria-label={t.footer.nav}>{socials(locale).map(social => <a key={social.url} href={social.url} {...external}>{social.name}</a>)}<a href={localePath(locale, '/lab')}>{t.nav.lab}</a><a href={localePath(locale, '/community')}>{t.nav.community}</a><a href="/privacy">{t.footer.privacy}</a><LanguageSwitch locale={locale} path={path} available={available}/><span>© 2026 Ginseng Try Catch</span></nav>
+      <nav aria-label={t.footer.nav}>{socials(locale).map(social => <a key={social.url} href={social.url} {...external}>{social.name}</a>)}<a href={localePath(locale, '/blog')}>{t.nav.blog}</a><a href={localePath(locale, '/lab')}>{t.nav.lab}</a><a href={localePath(locale, '/community')}>{t.nav.community}</a><a href="/privacy">{t.footer.privacy}</a><LanguageSwitch locale={locale} path={path} available={available}/><span>© 2026 Ginseng Try Catch</span></nav>
     </div>
   </footer>;
 }
