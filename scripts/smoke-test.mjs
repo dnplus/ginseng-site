@@ -81,6 +81,21 @@ try {
   await page('/en/lab', 'Built it? It goes here first.');
   await page('/community', '一起實驗的人，聚在這裡。');
   await page('/en/community', 'Where the tinkerers hang out.');
+  await page('/blog', '影片之外，寫下來的部分。');
+  await page('/en/blog', 'The written-down part.');
+  for (const [path, type] of [['/feed.xml', 'application/rss+xml'], ['/en/feed.xml', 'application/rss+xml'], ['/sitemap.xml', 'application/xml']]) {
+    const response = await fetch(`${origin}${path}`);
+    assert.equal(response.status, 200, `${path} status`);
+    assert.ok(response.headers.get('content-type')?.includes(type), `${path} content type`);
+    assert.ok((await response.text()).startsWith('<?xml'), `${path} is XML`);
+  }
+  // Drafts never ship, so a drafted episode still points at its Notion article; unknown episodes go to the list.
+  for (const [path, target] of [['/ep/082', 'https://ginseng.notion.site/EP082-'], ['/ep/EP079', 'https://ginseng.notion.site/EP079-'], ['/ep/9999', `${origin}/blog`]]) {
+    const response = await fetch(`${origin}${path}`, {redirect: 'manual'});
+    assert.equal(response.status, 302, `${path} redirects`);
+    assert.ok(response.headers.get('location')?.startsWith(target), `${path} redirects to ${target}`);
+  }
+  assert.equal((await fetch(`${origin}/blog/ep079`)).status, 404, 'Draft posts are not published.');
   await page('/unsubscribe', '先在這裡，下車也沒關係。');
   const assetPaths = [...html.matchAll(/\b(?:src|href)="([^"\s]+\.(?:css|js)(?:\?[^"\s]*)?)"/g)]
     .map(match => new URL(match[1].replaceAll('&amp;', '&'), origin))
