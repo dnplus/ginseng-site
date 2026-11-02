@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { Resend } from 'resend';
 import { database, json } from '@/lib/server';
+import { syncQuietly } from '@/lib/subscriber-sync';
 
 /**
  * Resend → D1: a contact who unsubscribes through Resend's link, or marks a broadcast as spam, stops getting mail here
@@ -26,9 +27,12 @@ export async function POST(request: Request) {
   let applied = 0;
   for (const raw of emails) {
     const email = raw.trim().toLowerCase();
-    const result = await db.prepare("UPDATE subscribers SET status = 'unsubscribed', confirm_token = NULL, resend_sync = 'done', resend_synced_at = ?, updated_at = ? WHERE email = ? AND status = 'active' AND updated_at <= ?").bind(now, now, email, eventTime).run();
+    // Queued rather than marked done: a push of the older 'active' state may have reached Resend after this event and
+    // resubscribed the contact, so the unsubscribe is pushed back once more.
+    const result = await db.prepare("UPDATE subscribers SET status = 'unsubscribed', confirm_token = NULL, resend_sync = 'pending', updated_at = ? WHERE email = ? AND status = 'active' AND updated_at <= ?").bind(now, email, eventTime).run();
     if (result.meta.changes) applied++;
     else await db.prepare("UPDATE subscribers SET resend_sync = 'pending' WHERE email = ? AND status = 'active' AND updated_at > ?").bind(email, eventTime).run();
+    await syncQuietly(db, email);
   }
   return json({ok: true, applied});
 }
