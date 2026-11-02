@@ -15,5 +15,6 @@ export function pageMetadata(locale: Locale, path: string, options: {title?: str
       locale: OG_LOCALE[locale], alternateLocale: available.filter(each => each !== locale).map(each => OG_LOCALE[each]),
       type: options.ogType ?? 'website',
     },
+    twitter: {card: 'summary_large_image', site: '@ginsengtrycatch', creator: '@ginsengtrycatch'},
   };
 }
