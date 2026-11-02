@@ -5,17 +5,18 @@ import { pushSubscriber, resendReady, type SubscriberRow } from './resend-sync';
 export const resendClient = () => resendReady(env) ? new Resend(env.RESEND_API_KEY) : null;
 
 /**
- * Push pending subscriber changes to Resend: one address right after it changes, or a batch from the studio. Rows still
- * waiting for email confirmation are skipped; Resend only ever sees confirmed or unsubscribed addresses. Each row costs up
- * to three API calls, so batches stay small enough for one Worker request.
+ * Push pending subscriber changes to Resend: one address right after it changes, or a batch from the studio. A row
+ * waiting for email confirmation is pushed as unsubscribed: that only updates a contact Resend already has (someone who
+ * unsubscribed and is now signing up again must stop getting mail until they confirm) and never creates one, so an
+ * unconfirmed address never reaches Resend. Each row costs up to four API calls, so batches stay small.
  */
 export async function syncSubscribers(db: D1Database, options: {email?: string; limit?: number} = {}) {
   const client = resendClient();
   if (!client) return {synced: 0, failed: 0, configured: false};
   // Oldest attempt first (never-tried rows lead), so rows that keep failing move to the back instead of blocking the rest.
   const rows = options.email
-    ? await db.prepare("SELECT email, status, locale FROM subscribers WHERE email = ? AND resend_sync = 'pending' AND status != 'pending'").bind(options.email).all<SubscriberRow>()
-    : await db.prepare("SELECT email, status, locale FROM subscribers WHERE resend_sync = 'pending' AND status != 'pending' ORDER BY resend_synced_at IS NOT NULL, resend_synced_at, updated_at LIMIT ?").bind(options.limit ?? 15).all<SubscriberRow>();
+    ? await db.prepare("SELECT email, status, locale FROM subscribers WHERE email = ? AND resend_sync = 'pending'").bind(options.email).all<SubscriberRow>()
+    : await db.prepare("SELECT email, status, locale FROM subscribers WHERE resend_sync = 'pending' ORDER BY resend_synced_at IS NOT NULL, resend_synced_at, updated_at LIMIT ?").bind(options.limit ?? 15).all<SubscriberRow>();
   let synced = 0, failed = 0;
   for (const first of rows.results) {
     // A change can land while a push is in flight (say, an unsubscribe while the studio pushes "active"). The row is
@@ -36,7 +37,7 @@ export async function syncSubscribers(db: D1Database, options: {email?: string; 
       const done = await db.prepare("UPDATE subscribers SET resend_sync = 'done', resend_synced_at = ? WHERE email = ? AND status = ? AND locale = ?").bind(at, row.email, row.status, row.locale).run();
       if (done.meta.changes) { synced++; row = null; break; }
       await db.prepare("UPDATE subscribers SET resend_sync = 'pending' WHERE email = ?").bind(first.email).run();
-      row = await db.prepare("SELECT email, status, locale FROM subscribers WHERE email = ? AND status != 'pending'").bind(first.email).first<SubscriberRow>();
+      row = await db.prepare("SELECT email, status, locale FROM subscribers WHERE email = ?").bind(first.email).first<SubscriberRow>();
     }
   }
   return {synced, failed, configured: true};
