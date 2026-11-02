@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { verifyPartner, newsletterLocale } from '@/lib/partner-auth';
 import { syncQuietly } from '@/lib/subscriber-sync';
-import { database, json } from '@/lib/server';
+import { database, json, readLimited } from '@/lib/server';
 import { cleanEmail } from '@/lib/validation';
 
 const SOURCES = new Set(['pa-cafe']);
@@ -15,8 +15,9 @@ const SOURCES = new Set(['pa-cafe']);
  * email proves on the website. The answer is the address's newsletter status, so the product can show its toggle.
  */
 export async function POST(request: Request) {
-  const raw = await request.text();
-  if (raw.length > 4096) return json({error: 'too large'}, 413);
+  // Counted while streaming, so an oversized unsigned body is dropped before it is buffered.
+  const raw = await readLimited(request, 4096);
+  if (raw === null) return json({error: 'too large'}, 413);
   if (!await verifyPartner(env.NEWSLETTER_PARTNER_SECRET, request.headers, raw)) return json({error: 'invalid signature'}, 403);
   let data: Record<string, unknown>;
   try { data = JSON.parse(raw); } catch { return json({error: 'invalid json'}, 400); }
@@ -29,10 +30,10 @@ export async function POST(request: Request) {
     const consent = data.consent as {version?: unknown; text?: unknown} | undefined;
     if (typeof consent?.version !== 'string' || !consent.version || consent.version.length > 64 || typeof consent.text !== 'string' || !consent.text || consent.text.length > 500) return json({error: 'consent required'}, 400);
     const locale = newsletterLocale(data.locale), version = `${source}:${consent.version}`;
-    await db.prepare(`INSERT INTO subscribers (id, email, status, unsubscribe_token, consent_version, created_at, updated_at, locale, source, confirmed_at, resend_sync)
-      VALUES (?, ?, 'active', ?, ?, ?, ?, ?, ?, ?, 'pending')
-      ON CONFLICT(email) DO UPDATE SET status = 'active', consent_version = excluded.consent_version, updated_at = excluded.updated_at, locale = excluded.locale, source = excluded.source, confirmed_at = excluded.confirmed_at, confirm_token = NULL, resend_sync = 'pending'
-      WHERE subscribers.status != 'active'`).bind(crypto.randomUUID(), email, crypto.randomUUID(), version, now, now, locale, source, now).run();
+    await db.prepare(`INSERT INTO subscribers (id, email, status, unsubscribe_token, consent_version, consent_text, created_at, updated_at, locale, source, confirmed_at, resend_sync)
+      VALUES (?, ?, 'active', ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+      ON CONFLICT(email) DO UPDATE SET status = 'active', consent_version = excluded.consent_version, consent_text = excluded.consent_text, updated_at = excluded.updated_at, locale = excluded.locale, source = excluded.source, confirmed_at = excluded.confirmed_at, confirm_token = NULL, resend_sync = 'pending'
+      WHERE subscribers.status != 'active'`).bind(crypto.randomUUID(), email, crypto.randomUUID(), version, consent.text, now, now, locale, source, now).run();
     await syncQuietly(db, email);
   } else if (action === 'unsubscribe') {
     const changed = await db.prepare("UPDATE subscribers SET status = 'unsubscribed', confirm_token = NULL, resend_sync = 'pending', updated_at = ? WHERE email = ? AND status != 'unsubscribed' RETURNING email").bind(now, email).first();

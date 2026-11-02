@@ -18,7 +18,7 @@ export type ContactsClient = {
   contacts: {
     create(options: {email: string; unsubscribed?: boolean; segments?: {id: string}[]}): Promise<Result>;
     update(options: {email: string; unsubscribed?: boolean}): Promise<Result>;
-    segments: {add(options: {email: string; segmentId: string}): Promise<Result>};
+    segments: {add(options: {email: string; segmentId: string}): Promise<Result>; remove(options: {email: string; segmentId: string}): Promise<Result>};
   };
 };
 
@@ -27,7 +27,8 @@ export type SubscriberRow = {email: string; status: string; locale: Locale | str
 const notFound = (result: Result) => result.error?.statusCode === 404 || result.error?.name === 'not_found';
 
 /**
- * Push one subscriber's state. Active: the contact exists, is subscribed and is in its language segment. Anything else
+ * Push one subscriber's state. Active: the contact exists, is subscribed, is in its language segment and not in the other
+ * language's (someone who resubscribes in the other language must not get both editions). Anything else
  * (pending, unsubscribed): if Resend has the contact, it is unsubscribed; a pending address never reaches Resend.
  */
 export async function pushSubscriber(client: ContactsClient, env: ResendEnv, row: SubscriberRow): Promise<void> {
@@ -36,13 +37,18 @@ export async function pushSubscriber(client: ContactsClient, env: ResendEnv, row
     if (result.error && !notFound(result)) throw new Error(`Resend update failed: ${result.error.message}`);
     return;
   }
-  const segmentId = segmentFor(env, row.locale);
+  const segmentId = segmentFor(env, row.locale), otherId = segmentFor(env, row.locale === 'en' ? 'zh-TW' : 'en');
   if (!segmentId) throw new Error(`No Resend segment configured for ${row.locale}`);
   const created = await client.contacts.create({email: row.email, unsubscribed: false, segments: [{id: segmentId}]});
-  if (!created.error) return;
-  // Already a contact (re-subscribed, or synced before): make sure it is subscribed and in the segment.
-  const updated = await client.contacts.update({email: row.email, unsubscribed: false});
-  if (updated.error) throw new Error(`Resend update failed: ${updated.error.message}`);
-  const added = await client.contacts.segments.add({email: row.email, segmentId});
-  if (added.error && added.error.statusCode !== 409) throw new Error(`Resend segment add failed: ${added.error.message}`);
+  if (created.error) {
+    // Already a contact (re-subscribed, or synced before): make sure it is subscribed and in the segment.
+    const updated = await client.contacts.update({email: row.email, unsubscribed: false});
+    if (updated.error) throw new Error(`Resend update failed: ${updated.error.message}`);
+    const added = await client.contacts.segments.add({email: row.email, segmentId});
+    if (added.error && added.error.statusCode !== 409) throw new Error(`Resend segment add failed: ${added.error.message}`);
+  }
+  if (otherId && otherId !== segmentId) {
+    const removed = await client.contacts.segments.remove({email: row.email, segmentId: otherId});
+    if (removed.error && !notFound(removed)) throw new Error(`Resend segment remove failed: ${removed.error.message}`);
+  }
 }

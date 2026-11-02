@@ -5,8 +5,6 @@ import { CONFIRM_RESEND_MS, confirmationEmail } from '@/lib/newsletter-email';
 import { body, database, failure, FormError, json, rateLimit } from '@/lib/server';
 import { cleanEmail, CONSENT_VERSION } from '@/lib/validation';
 
-type Existing = {status: string; unsubscribe_token: string; confirm_sent_at: string | null};
-
 /**
  * Double opt-in: a new or returning address becomes 'pending' and gets a confirmation email; only the link in it makes
  * the subscription active. The response is the same whether or not the address is already subscribed.
@@ -21,15 +19,18 @@ export async function POST(request: Request) {
     await rateLimit(request, 'subscribe');
     const locale = isLocale(data.locale) ? data.locale : DEFAULT_LOCALE;
     const db = database();
-    const existing = await db.prepare('SELECT status, unsubscribe_token, confirm_sent_at FROM subscribers WHERE email = ?').bind(email).first<Existing>();
-    if (existing?.status === 'active') return json({ok: true});
-    const now = new Date();
-    if (existing?.status === 'pending' && existing.confirm_sent_at && now.getTime() - Date.parse(existing.confirm_sent_at) < CONFIRM_RESEND_MS) return json({ok: true});
-    const confirmToken = crypto.randomUUID(), unsubscribeToken = existing?.unsubscribe_token ?? crypto.randomUUID(), at = now.toISOString();
-    await db.prepare(`INSERT INTO subscribers (id, email, status, unsubscribe_token, consent_version, created_at, updated_at, locale, source, confirm_token, confirm_sent_at)
+    const now = new Date(), at = now.toISOString(), resendCutoff = new Date(now.getTime() - CONFIRM_RESEND_MS).toISOString();
+    const confirmToken = crypto.randomUUID();
+    // One statement reserves the send: it only inserts or updates when the address is not active and no confirmation went
+    // out within the resend window, so two overlapping requests cannot both send. The unsubscribe token comes back from
+    // the row itself, so a returning address keeps its original link.
+    const reserved = await db.prepare(`INSERT INTO subscribers (id, email, status, unsubscribe_token, consent_version, created_at, updated_at, locale, source, confirm_token, confirm_sent_at)
       VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, 'website', ?, ?)
-      ON CONFLICT(email) DO UPDATE SET status = 'pending', consent_version = excluded.consent_version, updated_at = excluded.updated_at, locale = excluded.locale, confirm_token = excluded.confirm_token, confirm_sent_at = excluded.confirm_sent_at
-      WHERE subscribers.status != 'active'`).bind(crypto.randomUUID(), email, unsubscribeToken, CONSENT_VERSION, at, at, locale, confirmToken, at).run();
+      ON CONFLICT(email) DO UPDATE SET status = 'pending', consent_version = excluded.consent_version, consent_text = NULL, updated_at = excluded.updated_at, locale = excluded.locale, confirm_token = excluded.confirm_token, confirm_sent_at = excluded.confirm_sent_at
+      WHERE subscribers.status != 'active' AND NOT (subscribers.status = 'pending' AND subscribers.confirm_sent_at IS NOT NULL AND subscribers.confirm_sent_at > ?)
+      RETURNING unsubscribe_token, confirm_token`).bind(crypto.randomUUID(), email, crypto.randomUUID(), CONSENT_VERSION, at, at, locale, confirmToken, at, resendCutoff).first<{unsubscribe_token: string; confirm_token: string}>();
+    if (reserved?.confirm_token !== confirmToken) return json({ok: true});
+    const unsubscribeToken = reserved.unsubscribe_token;
     const site = (env.SITE_URL || new URL(request.url).origin).replace(/\/$/, '');
     try {
       await env.NEWSLETTER_EMAIL.send(confirmationEmail(site, locale, email, confirmToken, unsubscribeToken));
