@@ -38,7 +38,11 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Check the deploy token is set
-        run: test -n "$CLOUDFLARE_API_TOKEN" || { echo "::error::Add the CLOUDFLARE_API_TOKEN repository secret (README: 自動部署)."; exit 1; }
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::Add the CLOUDFLARE_API_TOKEN repository secret (README, 自動部署)."
+            exit 1
+          fi
       # Migrations first: the new code may read columns they add. They only add columns and tables, so the
       # still-running old version keeps working in between.
       - name: Apply D1 migrations
