@@ -1,4 +1,5 @@
 import type { Post } from './blog.ts';
+import { absolutize } from './html.ts';
 import { localePath, type Locale } from './i18n.ts';
 
 /** Resend replaces this with each contact's unsubscribe link in broadcasts and adds the List-Unsubscribe headers. */
@@ -8,8 +9,9 @@ const FOOTER: Record<Locale, {why: string; web: string; unsubscribe: string; fro
   en: {why: 'You are getting this because you subscribed to the Ginseng Try Catch newsletter.', web: 'Read on the web', unsubscribe: 'Unsubscribe', from: 'Ginseng Try Catch'},
 };
 const escape = (text: string) => text.replace(/[&<>"']/g, character => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[character] ?? character));
-/** Email clients have no base URL, so site-relative links and images must become absolute. */
-export const absolutize = (html: string, site: string) => html.replace(/(\s(?:href|src)=")\/(?!\/)/g, `$1${site}/`);
+export { absolutize };
+/** The plain-text part is the Markdown source; its site-relative link and image targets need the same treatment. */
+export const absolutizeMarkdown = (markdown: string, site: string) => markdown.replace(/\]\(\/(?!\/)/g, `](${site.replace(/\/$/, '')}/`);
 
 export function issueEmail(issue: Post, bodyHtml: string, site: string) {
   const t = FOOTER[issue.locale], web = `${site}${localePath(issue.locale, `/newsletter/${issue.slug}`)}`;
@@ -21,6 +23,6 @@ ${absolutize(bodyHtml, site).replaceAll('<img ', '<img style="max-width:100%;hei
 <hr style="margin:40px 0 20px;border:0;border-top:2px dashed #d8cfbb">
 <p style="font-size:13px;color:#4a5a4f">${escape(t.why)}<br><a href="${escape(web)}" style="color:#263f35">${escape(t.web)}</a> · <a href="${RESEND_UNSUBSCRIBE}" style="color:#263f35">${escape(t.unsubscribe)}</a></p>
 </div></body></html>`;
-  const text = `${issue.title}\n\n${issue.body.trim()}\n\n—\n${t.why}\n${t.web}: ${web}\n${t.unsubscribe}: ${RESEND_UNSUBSCRIBE}\n`;
+  const text = `${issue.title}\n\n${absolutizeMarkdown(issue.body.trim(), site)}\n\n—\n${t.why}\n${t.web}: ${web}\n${t.unsubscribe}: ${RESEND_UNSUBSCRIBE}\n`;
   return {subject: issue.title, previewText: issue.summary || undefined, html, text, name: `${issue.locale}/${issue.slug}`};
 }
