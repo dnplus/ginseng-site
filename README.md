@@ -54,6 +54,9 @@ JWT 驗證會檢查 Cloudflare 公開金鑰簽章、issuer、AUD、有效期限�
 ## 資料與功能
 
 - `/`：個人介紹、PA Cafe、你的 AI 夥伴風格指南、Genio One、YouTube／Threads／Instagram、合作聯繫及電子報。影片區由 Worker 讀取頻道 RSS；RSS 無法使用時讀取 YouTube 公開影片頁（`lib/youtube.ts`），每個 isolate 快取 15 分鐘；兩個來源都無法取得時會標示並顯示內建清單（最近更新：2026-10-19；備用清單不顯示觀看次數）。Nunito Sans 由本站提供，Noto Sans TC 來自 Google Fonts，影片縮圖來自 i.ytimg.com。
+- `/en`：英文首頁。多語系規則：預設語言（繁中）在根目錄，其他語言加路徑前綴，避免既有網址與影片 QR code 失效；`lib/i18n.ts` 管理語系、路徑與介面字典，每頁用 `lib/metadata.ts` 輸出 canonical 與 `hreflang`（只列該頁實際存在的語言）。`worker.ts` 依路徑設定 `<html lang>`，不依瀏覽器語言自動轉址，改由頁首語言切換。
+- `/lab`、`/en/lab`：實驗室，列出產品與小工具；新工具加到 `lib/site.ts` 的 `LAB`。
+- `/community`、`/en/community`：Discord 社群介紹；`lib/site.ts` 的 `DISCORD_INVITE_URL` 設定後顯示加入按鈕，未設定時顯示「即將開放」並導向電子報。社群帳號（YouTube、Threads、Instagram、Facebook、X）集中在同一檔案；X 是英文主力，英文頁排第一。
 - `/studio`：管理工作站，顯示最近資料並可匯出 CSV。
 - `/unsubscribe?token=...`：確認退訂；每位訂閱者的網址包含於 CSV。
 - `/privacy`：資料使用說明。
