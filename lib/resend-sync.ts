@@ -25,6 +25,8 @@ export type ContactsClient = {
 export type SubscriberRow = {email: string; status: string; locale: Locale | string};
 
 const notFound = (result: Result) => result.error?.statusCode === 404 || result.error?.name === 'not_found';
+// Already in the segment: Resend returns 422 now; older responses used 409.
+const alreadyInSegment = (result: Result) => result.error?.statusCode === 409 || result.error?.statusCode === 422;
 
 /**
  * Push one subscriber's state. Active: the contact exists, is subscribed, is in its language segment and not in the other
@@ -45,7 +47,7 @@ export async function pushSubscriber(client: ContactsClient, env: ResendEnv, row
     const updated = await client.contacts.update({email: row.email, unsubscribed: false});
     if (updated.error) throw new Error(`Resend update failed: ${updated.error.message}`);
     const added = await client.contacts.segments.add({email: row.email, segmentId});
-    if (added.error && added.error.statusCode !== 409) throw new Error(`Resend segment add failed: ${added.error.message}`);
+    if (added.error && !alreadyInSegment(added)) throw new Error(`Resend segment add failed: ${added.error.message}`);
   }
   if (otherId && otherId !== segmentId) {
     const removed = await client.contacts.segments.remove({email: row.email, segmentId: otherId});
