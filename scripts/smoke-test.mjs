@@ -145,6 +145,7 @@ try {
   assert.equal(initial[0].status, 'pending', 'A new subscription waits for email confirmation.');
   assert.equal(initial[0].locale, 'zh-TW');
   assert.match(initial[0].confirm_token, /^[0-9a-f-]{36}$/);
+  assert.equal((await d1(`SELECT resend_sync FROM subscribers WHERE email = ${sqlString(email)}`))[0].resend_sync, 'done', 'A brand-new unconfirmed address has nothing to push to Resend.');
   assert.match(initial[0].unsubscribe_token, /^[0-9a-f-]{36}$/);
   assert.ok(initial[0].consent_version, 'Subscription records the consent version.');
   await post('subscribe', { email: email.toUpperCase(), consent: true });

@@ -24,8 +24,9 @@ export async function POST(request: Request) {
     // One statement reserves the send: it only inserts or updates when the address is not active and no confirmation went
     // out within the resend window, so two overlapping requests cannot both send. The unsubscribe token comes back from
     // the row itself, so a returning address keeps its original link.
-    const reserved = await db.prepare(`INSERT INTO subscribers (id, email, status, unsubscribe_token, consent_version, created_at, updated_at, locale, source, confirm_token, confirm_sent_at)
-      VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, 'website', ?, ?)
+    // A brand-new address has nothing in Resend yet, so it starts in sync; an existing row keeps its own sync state.
+    const reserved = await db.prepare(`INSERT INTO subscribers (id, email, status, unsubscribe_token, consent_version, created_at, updated_at, locale, source, confirm_token, confirm_sent_at, resend_sync)
+      VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, 'website', ?, ?, 'done')
       ON CONFLICT(email) DO UPDATE SET status = 'pending', consent_version = excluded.consent_version, consent_text = NULL, updated_at = excluded.updated_at, locale = excluded.locale, confirm_token = excluded.confirm_token, confirm_sent_at = excluded.confirm_sent_at
       WHERE subscribers.status != 'active' AND NOT (subscribers.status = 'pending' AND subscribers.confirm_sent_at IS NOT NULL AND subscribers.confirm_sent_at > ?)
       RETURNING unsubscribe_token, confirm_token`).bind(crypto.randomUUID(), email, crypto.randomUUID(), CONSENT_VERSION, at, at, locale, confirmToken, at, resendCutoff).first<{unsubscribe_token: string; confirm_token: string}>();
