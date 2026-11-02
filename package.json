@@ -10,7 +10,7 @@
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1 --port 5173 --strictPort",
     "check": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test tests/i18n.test.ts tests/blog.test.ts tests/newsletter.test.ts tests/access-auth.test.ts tests/youtube.test.ts tests/contact-notification.test.ts",
+    "test": "node --experimental-strip-types --test tests/i18n.test.ts tests/blog.test.ts tests/newsletter.test.ts tests/resend.test.ts tests/access-auth.test.ts tests/youtube.test.ts tests/contact-notification.test.ts",
     "test:smoke": "node scripts/smoke-test.mjs",
     "deploy": "pnpm build && wrangler deploy",
     "deploy:dry-run": "pnpm build && wrangler deploy --dry-run",
@@ -24,7 +24,8 @@
     "marked": "18.1.2",
     "next": "16.3.4",
     "react": "19.2.6",
-    "react-dom": "19.2.6"
+    "react-dom": "19.2.6",
+    "resend": "6.37.0"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",

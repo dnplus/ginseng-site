@@ -71,7 +71,19 @@ JWT 驗證會檢查 Cloudflare 公開金鑰簽章、issuer、AUD、有效期限�
 
 電子報採雙重確認（double opt-in，migration `0003`）：表單送出後訂閱者為 `pending`，系統以 `NEWSLETTER_EMAIL` binding（只允許 `ginseng@dnplus.dev` 寄件、不限收件人）寄確認信，點 `/newsletter/confirm` 的按鈕後才變成 `active`；連結 7 天有效，同一信箱 10 分鐘內不重寄。舊的 single opt-in 訂閱者維持 `active`。訂閱者會記錄語言（`locale`）與來源（`source`）。
 
-每封電子報都要帶 `lib/newsletter-email.ts` 的 `listUnsubscribeHeaders()`（RFC 8058 一鍵退訂，目標是 `/api/unsubscribe/one-click`）。群發服務尚未串接；後台 CSV 匯出含語言、退訂網址與一鍵退訂網址。歷期電子報放在 `content/newsletters/<語系>/<slug>.md`（格式同文章），顯示於 `/newsletter`。
+本站自己寄的信（確認信）都帶 `lib/newsletter-email.ts` 的 `listUnsubscribeHeaders()`（RFC 8058 一鍵退訂，目標是 `/api/unsubscribe/one-click`）。
+
+### 用 Resend 群發
+
+D1 是訂閱名單的唯一來源；確認後的訂閱者同步成 Resend 聯絡人（中、英各一個 segment），用 Resend 行銷方案（以聯絡人數計費）寄 broadcast。
+
+1. 在 Resend 驗證寄件網域 `dnplus.dev`（寄件人 `ginseng@dnplus.dev`），建立兩個 segment，把 id 填入 `wrangler.jsonc` 的 `RESEND_SEGMENT_ZH_TW`、`RESEND_SEGMENT_EN`。
+2. `pnpm exec wrangler secret put RESEND_API_KEY`（需要 contacts 與 broadcasts 權限）。
+3. 在 Resend 建 webhook 指向 `https://<網域>/api/webhooks/resend`，勾選 `contact.updated` 與 `email.complained`，把 signing secret 存成 `RESEND_WEBHOOK_SECRET`。在 Resend 退訂或檢舉垃圾信的人，會同步改成本站退訂。
+4. `pnpm db:migrate:remote` 套用 `0004`，部署後到 `/studio` 按「同步名單」補同步既有訂閱者（每次 15 筆，可重按）。之後確認、退訂都會即時同步，失敗的留在待同步。
+5. 寫電子報：在 `content/newsletters/<語系>/<slug>.md` 新增一期（格式同文章，路徑用站內相對路徑即可，寄出時會轉成絕對網址），部署後在 `/studio` 按「建立 Resend 草稿」。**本站只建草稿**，到 Resend 寄測試信、確認後再發送。信尾自動帶網頁版連結與 Resend 退訂連結。
+
+後台 CSV 匯出仍含語言、退訂網址與一鍵退訂網址。歷期電子報放在 `content/newsletters/<語系>/<slug>.md`（格式同文章），顯示於 `/newsletter`。
 
 API 錯誤訊息依表單送出的 `X-Site-Locale` 回傳中文或英文（`lib/messages.ts`）；隱私說明有 `/privacy` 與 `/en/privacy`。
 
