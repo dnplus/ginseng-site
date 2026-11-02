@@ -18,9 +18,17 @@ export async function POST(request: Request) {
   const emails = event.type === 'contact.updated' && event.data.unsubscribed ? [event.data.email]
     : event.type === 'email.complained' ? event.data.to : [];
   const db = database(), now = new Date().toISOString();
-  for (const email of emails) {
-    // Resend already has this state, so the row is in sync.
-    await db.prepare("UPDATE subscribers SET status = 'unsubscribed', confirm_token = NULL, resend_sync = 'done', resend_synced_at = ?, updated_at = ? WHERE email = ? AND status = 'active'").bind(now, now, email.trim().toLowerCase()).run();
+  // Events can arrive late or be replayed. One older than the row's last change (say, an unsubscribe from before the
+  // person confirmed again on the site) must not undo that change; the row is queued for a push instead, so Resend
+  // gets the current state back.
+  const happened = Date.parse(event.created_at);
+  const eventTime = Number.isNaN(happened) ? now : new Date(happened).toISOString();
+  let applied = 0;
+  for (const raw of emails) {
+    const email = raw.trim().toLowerCase();
+    const result = await db.prepare("UPDATE subscribers SET status = 'unsubscribed', confirm_token = NULL, resend_sync = 'done', resend_synced_at = ?, updated_at = ? WHERE email = ? AND status = 'active' AND updated_at <= ?").bind(now, now, email, eventTime).run();
+    if (result.meta.changes) applied++;
+    else await db.prepare("UPDATE subscribers SET resend_sync = 'pending' WHERE email = ? AND status = 'active' AND updated_at > ?").bind(email, eventTime).run();
   }
-  return json({ok: true, applied: emails.length});
+  return json({ok: true, applied});
 }

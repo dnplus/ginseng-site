@@ -58,7 +58,7 @@ JWT 驗證會檢查 Cloudflare 公開金鑰簽章、issuer、AUD、有效期限�
 - `/lab`、`/en/lab`：實驗室，列出產品與小工具；新工具加到 `lib/site.ts` 的 `LAB`。
 - `/community`、`/en/community`：Discord 社群介紹；`lib/site.ts` 的 `DISCORD_INVITE_URL` 設定後顯示加入按鈕，未設定時顯示「即將開放」並導向電子報。社群帳號（YouTube、Threads、Instagram、Facebook、X）集中在同一檔案；X 是英文主力，英文頁排第一。
 - `/blog`、`/blog/<slug>`、`/en/blog`：部落格。文章是 `content/posts/<語系>/<slug>.md`（front matter 欄位見 `lib/blog.ts`），建置時打包進 Worker；翻譯版用同一個 slug 放到另一個語系資料夾，頁面會自動互相連結並輸出 `hreflang`。`draft: true` 只在 `pnpm dev` 顯示。
-  - 從 Notion 搬文章（在 `ntn whoami` 已登入的機器）：`node scripts/import-notion.mjs <Notion 網址> --slug ep082 --date 2026-10-25 --episode 82 --youtube <影片 id>`，圖片會下載到 `public/blog/<slug>/`。
+  - 從 Notion 搬文章（在 `ntn whoami` 已登入的機器）：`node scripts/import-notion.mjs <Notion 網址> --slug ep082 --date 2026-10-25 --episode 82 --youtube <影片 id>`，圖片會下載到 `public/blog/<slug>/<語系>-NN.<副檔名>`（翻譯版同 slug 也不會互相覆蓋）。
   - 從 ARS 集數產生草稿：`node --experimental-strip-types scripts/episode-to-post.mjs <ARS>/src/episodes/ginseng-channel/ep087/episode.ts --youtube <id> --date <首播日>`。
 - `/ep/<集數>`：影片 QR code 與說明欄用的固定短網址（`/ep/87`、`/ep/087`、`/ep/EP087` 都可）。本站有該集文章就導過去，否則導到 `lib/episodes.ts` 的 Notion 舊文，再不然導到文章列表；用 302，搬家後同一個短網址自動換目的地。已發布的 Notion 頁面請保留，舊影片的 QR code 仍指向它們。
 - `/feed.xml`、`/en/feed.xml`：各語系 RSS；`/sitemap.xml` 含各語系 `hreflang`。
