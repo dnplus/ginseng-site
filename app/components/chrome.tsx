@@ -34,7 +34,7 @@ export function LanguageSwitch({locale, path, available = LOCALES}: {locale: Loc
 }
 
 export function SiteHeader({locale, path, available}: {locale: Locale; path: string; available?: readonly Locale[]}) {
-  const t = dictionary(locale), items = navItems(locale), subscribe = `${localePath(locale, '/')}#newsletter`;
+  const t = dictionary(locale), items = navItems(locale), subscribe = localePath(locale, '/newsletter');
   return <header className="header">
     <a href={localePath(locale, '/')} aria-label={t.homeLabel}><Plaque locale={locale}/></a>
     <nav className="desktop-nav" aria-label={t.nav.main}>{items.map(item => <a key={item.href} href={item.href}>{item.label}</a>)}<LanguageSwitch locale={locale} path={path} available={available}/><a className="nav-cta" href={subscribe}>{t.nav.subscribe}</a></nav>
@@ -57,7 +57,7 @@ export function SiteFooter({locale, path, available}: {locale: Locale; path: str
   return <footer className="footer">
     <div className="wrap footer-inner">
       <div><a href={localePath(locale, '/')} aria-label={t.homeLabel}><Plaque locale={locale}/></a><p>{t.footer.tagline}</p></div>
-      <nav aria-label={t.footer.nav}>{socials(locale).map(social => <a key={social.url} href={social.url} {...external}>{social.name}</a>)}<a href={localePath(locale, '/blog')}>{t.nav.blog}</a><a href={localePath(locale, '/lab')}>{t.nav.lab}</a><a href={localePath(locale, '/community')}>{t.nav.community}</a><a href="/privacy">{t.footer.privacy}</a><LanguageSwitch locale={locale} path={path} available={available}/><span>© 2026 Ginseng Try Catch</span></nav>
+      <nav aria-label={t.footer.nav}>{socials(locale).map(social => <a key={social.url} href={social.url} {...external}>{social.name}</a>)}<a href={localePath(locale, '/blog')}>{t.nav.blog}</a><a href={localePath(locale, '/lab')}>{t.nav.lab}</a><a href={localePath(locale, '/community')}>{t.nav.community}</a><a href={localePath(locale, '/newsletter')}>{t.nav.subscribe}</a><a href={localePath(locale, '/privacy')}>{t.footer.privacy}</a><LanguageSwitch locale={locale} path={path} available={available}/><span>© 2026 Ginseng Try Catch</span></nav>
     </div>
   </footer>;
 }

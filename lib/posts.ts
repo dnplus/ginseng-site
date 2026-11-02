@@ -4,8 +4,11 @@ import { indexPosts } from './blog';
 
 // Bundled into the Worker at build time; there is no filesystem at request time.
 const files = import.meta.glob('/content/posts/*/*.md', {query: '?raw', import: 'default', eager: true}) as Record<string, string>;
+const issueFiles = import.meta.glob('/content/newsletters/*/*.md', {query: '?raw', import: 'default', eager: true}) as Record<string, string>;
 /** Drafts render in `pnpm dev` only. */
 export const posts = indexPosts(files, import.meta.env.DEV);
+/** Newsletter archive: same file format as posts, at `content/newsletters/<locale>/<slug>.md`. */
+export const issues = indexPosts(issueFiles, import.meta.env.DEV);
 
 const attr = (value: string) => value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;');
 const marked = new Marked({gfm: true, renderer: {

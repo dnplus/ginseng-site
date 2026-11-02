@@ -1,9 +1,11 @@
 import { env } from 'cloudflare:workers';
+import { DEFAULT_LOCALE, type Locale } from './i18n';
+import { message, requestLocale, type MessageKey } from './messages';
 export class FormError extends Error {
-  constructor(message: string, public status = 400) { super(message); }
+  constructor(public key: MessageKey, public status = 400) { super(key); }
 }
 export function database() {
-  if (!env.DB) throw new FormError('服務暫時無法使用，請稍後再試。', 503);
+  if (!env.DB) throw new FormError('unavailable', 503);
   return env.DB;
 }
 export function json(data: unknown, status = 200) {
@@ -11,10 +13,10 @@ export function json(data: unknown, status = 200) {
 }
 export async function body(request: Request) {
   const origin = request.headers.get('origin');
-  if (!origin || origin !== new URL(request.url).origin) throw new FormError('請從本站重新送出。', 403);
-  if (!request.headers.get('content-type')?.includes('application/json')) throw new FormError('不支援的資料格式。', 415);
+  if (!origin || origin !== new URL(request.url).origin) throw new FormError('wrongOrigin', 403);
+  if (!request.headers.get('content-type')?.includes('application/json')) throw new FormError('badContentType', 415);
   const reader = request.body?.getReader();
-  if (!reader) throw new FormError('請填寫資料。');
+  if (!reader) throw new FormError('emptyBody');
   let bytes = 0;
   const decoder = new TextDecoder();
   let text = '';
@@ -22,7 +24,7 @@ export async function body(request: Request) {
     const chunk = await reader.read();
     if (chunk.done) break;
     bytes += chunk.value.byteLength;
-    if (bytes > 16384) { await reader.cancel(); throw new FormError('內容太長，請縮短後再試。', 413); }
+    if (bytes > 16384) { await reader.cancel(); throw new FormError('tooLong', 413); }
     text += decoder.decode(chunk.value, {stream: true});
   }
   text += decoder.decode();
@@ -30,7 +32,7 @@ export async function body(request: Request) {
     const data = JSON.parse(text);
     if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error();
     return data as Record<string, unknown>;
-  } catch { throw new FormError('資料格式不正確。'); }
+  } catch { throw new FormError('badJson'); }
 }
 export async function rateLimit(request: Request, action: string) {
   const db = database();
@@ -40,10 +42,12 @@ export async function rateLimit(request: Request, action: string) {
   const key = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
   const result = await db.prepare('INSERT INTO rate_limits (key, count, expires_at) VALUES (?, 1, ?) ON CONFLICT(key) DO UPDATE SET count = count + 1 RETURNING count').bind(key, (bucket + 1) * 3600).first<{count: number}>();
   await db.prepare('DELETE FROM rate_limits WHERE expires_at < ?').bind(Math.floor(Date.now() / 1000)).run();
-  if ((result?.count ?? 99) > 12) throw new FormError('送出次數較多，請一小時後再試。', 429);
+  if ((result?.count ?? 99) > 12) throw new FormError('rateLimited', 429);
 }
-export function failure(error: unknown) {
-  if (error instanceof FormError) return json({error: error.message}, error.status);
+/** Error response in the language the form asked for (`X-Site-Locale`). */
+export function failure(error: unknown, request?: Request) {
+  const locale: Locale = request ? requestLocale(request) : DEFAULT_LOCALE;
+  if (error instanceof FormError) return json({error: message(error.key, locale)}, error.status);
   console.error('Form request failed');
-  return json({error: '暫時無法儲存，請稍後再試。'}, 503);
+  return json({error: message('saveFailed', locale)}, 503);
 }

@@ -3,6 +3,7 @@
 interface __BaseEnv_Env {
 	DB: D1Database;
 	CONTACT_EMAIL: SendEmail;
+	NEWSLETTER_EMAIL: SendEmail;
 	ASSETS: Fetcher;
 	SITE_URL: string;
 	CF_ACCESS_TEAM_DOMAIN: string;
