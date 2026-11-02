@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Move one published Notion article into content/posts. Reads the page as Markdown with the Notion CLI
 // (`ntn pages get <id>`, run where `ntn whoami` is logged in) or from a saved file, downloads every image before the
-// signed Notion URLs expire, stores them under public/blog/<slug>/ and rewrites the links.
+// signed Notion URLs expire, stores them under public/blog/<slug>/ (prefixed with the locale, so a translation with the
+// same slug never overwrites the original's images) and rewrites the links.
 //
 //   node scripts/import-notion.mjs <page-id-or-url> --slug ep082 --date 2026-10-25 [--episode 82] [--youtube <id>] [--locale zh-TW] [--file page.md] [--force]
 import { execFileSync } from 'node:child_process';
@@ -42,7 +43,7 @@ for (const [whole, alt, url] of images) {
   if (!response.ok) fail(`Image download failed (${response.status}): ${url}\nSigned Notion URLs expire; run the import again.`);
   const type = response.headers.get('content-type') ?? '';
   const ext = {'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp', 'image/svg+xml': 'svg'}[type.split(';')[0]] ?? (path.extname(new URL(url).pathname).slice(1) || 'png');
-  const name = `${String(++count).padStart(2, '0')}.${ext}`;
+  const name = `${values.locale}-${String(++count).padStart(2, '0')}.${ext}`;
   mkdirSync(assets, {recursive: true});
   writeFileSync(path.join(assets, name), Buffer.from(await response.arrayBuffer()));
   markdown = markdown.replace(whole, `![${alt}](/blog/${values.slug}/${name})`);
