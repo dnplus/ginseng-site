@@ -81,6 +81,9 @@ try {
   await page('/en/lab', 'Built it? It goes here first.');
   await page('/community', '一起實驗的人，聚在這裡。');
   await page('/en/community', 'Where the tinkerers hang out.');
+  const footer = await fetch(`${origin}/brand/footer.js`);
+  assert.equal(footer.status, 200, 'The shared brand footer script is served.');
+  assert.ok((await footer.text()).includes("customElements.define('ginseng-footer'"), 'The footer script defines <ginseng-footer>.');
   await page('/blog', '影片之外，寫下來的部分。');
   await page('/newsletter', '歷期電子報');
   await page('/en/newsletter', 'Past issues');
