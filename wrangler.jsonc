@@ -31,7 +31,7 @@
   "vars": {
     "SITE_URL": "https://ginseng.dnplus.dev",
     "CF_ACCESS_TEAM_DOMAIN": "https://dnplus.cloudflareaccess.com",
-    "CF_ACCESS_AUD": "",
+    "CF_ACCESS_AUD": "542a3075a34bbdd246e8d0c6f5d263192d049f554c8bdb27096ff491f716eec5",
     // Resend segment ids (one per newsletter language). RESEND_API_KEY and RESEND_WEBHOOK_SECRET are secrets:
     // `wrangler secret put`. Until all three of key and segments are set, nothing is sent to Resend.
     "RESEND_SEGMENT_ZH_TW": "4e1f6cb2-e07a-451d-a54d-35111eefb5bb",
