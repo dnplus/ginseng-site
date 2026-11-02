@@ -27,7 +27,7 @@ test('a confirmed subscriber becomes a subscribed contact in its language segmen
 });
 
 test('an existing contact is resubscribed, added to its segment and taken out of the other language', async () => {
-  const {client, calls} = fake({create: {message: 'exists', statusCode: 409}, add: {message: 'already', statusCode: 409}, remove: {message: 'not in segment', statusCode: 404}});
+  const {client, calls} = fake({create: {message: 'exists', statusCode: 409}, add: {message: 'already in segment', statusCode: 422}, remove: {message: 'not in segment', statusCode: 404}});
   await pushSubscriber(client, env, {email: 'a@example.test', status: 'active', locale: 'zh-TW'});
   assert.deepEqual(calls.map(([kind]) => kind), ['create', 'update', 'add', 'remove']);
   assert.deepEqual(calls[3][1], {email: 'a@example.test', segmentId: 'seg-en'});
