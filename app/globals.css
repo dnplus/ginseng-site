@@ -115,7 +115,7 @@ a:hover .thumb img { transform: scale(1.035); }
 .project { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 28px; margin-top: 72px; padding: 30px 34px; border: 2px solid var(--leaf-dk); border-radius: 22px; background: var(--paper); box-shadow: 6px 6px 0 var(--leaf-dk); }
 .project-icon { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 16px; background: var(--leaf-band); color: var(--leaf-dk); }
 .project-kicker { font-size: 14px; color: var(--leaf-dk); }
-.project h3 { font-size: clamp(28px, 2.6vw, 36px); }
+.project h2, .project h3 { font-size: clamp(28px, 2.6vw, 36px); }
 .project p:last-child { margin-top: 4px; font-size: 15px; color: var(--muted); }
 .project-links { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
 .quiet-link { font-size: 14px; color: var(--muted); text-decoration: underline; text-underline-offset: 5px; text-decoration-color: #3f2c2033; }
@@ -244,9 +244,9 @@ textarea { min-height: 140px; resize: vertical; }
   .mobile-menu { display: block; position: relative; }
   .mobile-menu > summary { display: grid; place-items: center; width: 44px; height: 44px; border: 2px solid var(--leaf-dk); border-radius: 12px; background: var(--paper); list-style: none; }
   .mobile-menu > summary::-webkit-details-marker { display: none; }
-  .mobile-menu nav { position: absolute; right: 0; top: 54px; display: grid; width: 190px; padding: 8px; border: 2px solid var(--leaf-dk); border-radius: 16px; background: var(--paper); box-shadow: 4px 4px 0 var(--leaf-dk); }
-  .mobile-menu nav a { padding: 10px 14px; border-radius: 10px; font-size: 15px; font-weight: 500; }
-  .mobile-menu nav a:hover { background: var(--leaf-lt); }
+  .mobile-menu > nav { position: absolute; right: 0; top: 54px; display: grid; width: 190px; padding: 8px; border: 2px solid var(--leaf-dk); border-radius: 16px; background: var(--paper); box-shadow: 4px 4px 0 var(--leaf-dk); }
+  .mobile-menu > nav > a { padding: 10px 14px; border-radius: 10px; font-size: 15px; font-weight: 500; }
+  .mobile-menu > nav > a:hover { background: var(--leaf-lt); }
   .panel { min-height: 0; }
   .header { padding: 18px 20px; }
   .hero { flex-direction: column; align-items: stretch; padding: 24px 24px 0; }
