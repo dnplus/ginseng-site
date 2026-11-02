@@ -36,6 +36,13 @@ pnpm test:smoke
 
 `pnpm preview` 執行正式建置產物，使用相同的本地 D1。Smoke test 會驗證頁面、圖片、表單寫入與讀回、重複訂閱、退訂、Origin/同意檢查、限流及匯出權限。JWT 測試使用合成金鑰驗證有效與無效憑證。
 
+## 自動部署（GitHub Actions）
+
+- **PR**：`.github/workflows/ci.yml` 跑 `pnpm check`、`pnpm test`、正式 build，並對 build 跑 `pnpm test:smoke`（只用 CI 機器上的本地 D1）。
+- **合併到 `main`**：`.github/workflows/deploy.yml` 先跑同一套檢查，再 `pnpm db:migrate:remote` 套用新的 D1 migration，然後 `pnpm run deploy`，最後確認正式站幾個頁面回 200。一次只跑一個部署，後到的排隊等。也可以在 Actions 頁手動執行（workflow_dispatch）。
+- **一次性設定**：在 Cloudflare 建 API token（Custom token：Account → Workers Scripts: Edit、D1: Edit、Account Settings: Read；Zone `dnplus.dev` → Workers Routes: Edit），存成 GitHub repo 的 Actions secret `CLOUDFLARE_API_TOKEN`。Worker 的 secret（`STUDIO_OWNER_EMAIL`、`RESEND_API_KEY` 等）照舊用 `wrangler secret put` 設一次即可，部署不會覆蓋。
+- Migration 只新增欄位與資料表，套用後、新版上線前舊版仍可正常運作；若之後要刪欄位或改名，請分兩次部署。
+
 ## 部署到你的 Cloudflare 帳戶
 
 1. 執行 `pnpm exec wrangler login`，再以 `pnpm exec wrangler whoami` 確認帳戶。
