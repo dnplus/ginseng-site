@@ -7,17 +7,15 @@ export const PA_CAFE_URL = 'https://pacafe.dnplus.dev';
 /** Set when the Discord server opens; until then /community shows "opening soon" and points to the newsletter. */
 export const DISCORD_INVITE_URL: string | null = null;
 
-export type Social = {name: string; handle: string; url: string; icon: 'youtube' | 'threads' | 'instagram' | 'x'};
-const SOCIALS: Social[] = [
-  {name: 'YouTube', handle: '@GinsengTryCatch', url: CHANNEL_URL, icon: 'youtube'},
-  {name: 'Threads', handle: '@ginsengtrycatch', url: 'https://www.threads.com/@ginsengtrycatch', icon: 'threads'},
-  {name: 'Instagram', handle: '@ginsengtrycatch', url: 'https://www.instagram.com/ginsengtrycatch/', icon: 'instagram'},
-];
-/** X is the English channel; add it here once the handle is live and it shows up first on English pages. */
-const X_ACCOUNT: Social | null = null;
+export type Social = {name: string; handle: string; url: string; icon: 'youtube' | 'threads' | 'instagram' | 'x' | 'facebook'};
+const YOUTUBE: Social = {name: 'YouTube', handle: '@GinsengTryCatch', url: CHANNEL_URL, icon: 'youtube'};
+const THREADS: Social = {name: 'Threads', handle: '@ginsengtrycatch', url: 'https://www.threads.com/@ginsengtrycatch', icon: 'threads'};
+const INSTAGRAM: Social = {name: 'Instagram', handle: '@ginsengtrycatch', url: 'https://www.instagram.com/ginsengtrycatch/', icon: 'instagram'};
+const FACEBOOK: Social = {name: 'Facebook', handle: 'ginsengtrycatch', url: 'https://www.facebook.com/ginsengtrycatch', icon: 'facebook'};
+/** X is the English channel, so English pages list it first. */
+export const X_ACCOUNT: Social = {name: 'X', handle: '@ginsengtrycatch', url: 'https://x.com/ginsengtrycatch', icon: 'x'};
 export function socials(locale: Locale): Social[] {
-  if (!X_ACCOUNT) return SOCIALS;
-  return locale === 'en' ? [X_ACCOUNT, ...SOCIALS] : [...SOCIALS, X_ACCOUNT];
+  return locale === 'en' ? [X_ACCOUNT, YOUTUBE, THREADS, INSTAGRAM, FACEBOOK] : [YOUTUBE, THREADS, INSTAGRAM, FACEBOOK, X_ACCOUNT];
 }
 
 type Text = Record<Locale, string>;

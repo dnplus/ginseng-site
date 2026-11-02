@@ -1,4 +1,4 @@
-import { ArrowUpRight, Camera, Globe, Menu, MessageCircle, PlaySquare, AtSign } from 'lucide-react';
+import { ArrowUpRight, Camera, Globe, Menu, MessageCircle, PlaySquare, AtSign, ThumbsUp } from 'lucide-react';
 import { dictionary, LANGUAGE_NAME, localePath, LOCALES, HTML_LANG, type Locale } from '@/lib/i18n';
 import { socials, type Social } from '@/lib/site';
 
@@ -8,7 +8,7 @@ export function Plaque({locale}: {locale: Locale}) {
   return locale === 'en' ? <span className="plaque"><b>Ginseng</b> TRY CATCH</span> : <span className="plaque"><b>人蔘</b> TRY CATCH</span>;
 }
 
-const ICONS = {youtube: PlaySquare, threads: MessageCircle, instagram: Camera, x: AtSign} as const;
+const ICONS = {youtube: PlaySquare, threads: MessageCircle, instagram: Camera, x: AtSign, facebook: ThumbsUp} as const;
 export function SocialIcon({social, size = 17}: {social: Social; size?: number}) { const Icon = ICONS[social.icon]; return <Icon size={size}/>; }
 
 function navItems(locale: Locale) {
