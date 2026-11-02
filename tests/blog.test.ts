@@ -37,3 +37,9 @@ test('the index hides drafts, sorts newest first, and links translations and epi
   assert.equal(index.episode(81), null);
   assert.equal(indexPosts(files, true).episode(81)?.slug, 'ep081');
 });
+
+test('feeds and emails get absolute links and images', async () => {
+  const {absolutize} = await import('../lib/html.ts');
+  assert.equal(absolutize('<a href="/blog/x">x</a><img src="/blog/x/zh-TW-01.png" alt=""><a href="https://a.test/">a</a><a href="//cdn.test/y">y</a>', 'https://site.test/'),
+    '<a href="https://site.test/blog/x">x</a><img src="https://site.test/blog/x/zh-TW-01.png" alt=""><a href="https://a.test/">a</a><a href="//cdn.test/y">y</a>');
+});
