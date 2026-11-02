@@ -10,6 +10,7 @@ interface __BaseEnv_Env {
 	RESEND_SEGMENT_EN: string;
 	RESEND_API_KEY?: string;
 	RESEND_WEBHOOK_SECRET?: string;
+	NEWSLETTER_PARTNER_SECRET?: string;
 	CF_ACCESS_TEAM_DOMAIN: string;
 	CF_ACCESS_AUD: string;
 	STUDIO_OWNER_EMAIL: string;

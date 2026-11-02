@@ -130,6 +130,8 @@ try {
     const denied = await fetch(`${origin}${action}`, {method: 'POST', headers: {Origin: origin}, body: new URLSearchParams({locale: 'en', slug: 'x'})});
     assert.equal(denied.status, 403, `${action} requires the studio owner`);
   }
+  const partner = await fetch(`${origin}/api/partner/newsletter`, {method: 'POST', headers: {'X-Ginseng-Timestamp': String(Math.floor(Date.now() / 1000)), 'X-Ginseng-Signature': '0'.repeat(64)}, body: JSON.stringify({action: 'subscribe', email, source: 'pa-cafe'})});
+  assert.equal(partner.status, 403, 'Unsigned partner subscriptions are refused.');
   const webhook = await fetch(`${origin}/api/webhooks/resend`, {method: 'POST', headers: {'svix-id': 'x', 'svix-timestamp': '1', 'svix-signature': 'v1,x'}, body: '{}'});
   assert.equal(webhook.status, 503, 'The Resend webhook refuses everything until its secret is configured.');
   console.log('PASS protected export denies missing and forged identity');

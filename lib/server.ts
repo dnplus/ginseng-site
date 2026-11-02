@@ -11,6 +11,21 @@ export function database() {
 export function json(data: unknown, status = 200) {
   return Response.json(data, {status, headers: {'Cache-Control': 'no-store'}});
 }
+/** Read a request body as text, cancelling the stream as soon as it passes `limit` bytes; null when too large. */
+export async function readLimited(request: Request, limit: number): Promise<string | null> {
+  const reader = request.body?.getReader();
+  if (!reader) return '';
+  const decoder = new TextDecoder();
+  let bytes = 0, text = '';
+  while (true) {
+    const chunk = await reader.read();
+    if (chunk.done) break;
+    bytes += chunk.value.byteLength;
+    if (bytes > limit) { await reader.cancel(); return null; }
+    text += decoder.decode(chunk.value, {stream: true});
+  }
+  return text + decoder.decode();
+}
 export async function body(request: Request) {
   const origin = request.headers.get('origin');
   if (!origin || origin !== new URL(request.url).origin) throw new FormError('wrongOrigin', 403);

@@ -83,7 +83,11 @@ D1 是訂閱名單的唯一來源；確認後的訂閱者同步成 Resend 聯絡
 4. `pnpm db:migrate:remote` 套用 `0004`，部署後到 `/studio` 按「同步名單」補同步既有訂閱者（每次 15 筆，可重按）。之後確認、退訂都會即時同步，失敗的留在待同步。
 5. 寫電子報：在 `content/newsletters/<語系>/<slug>.md` 新增一期（格式同文章，路徑用站內相對路徑即可，寄出時會轉成絕對網址），部署後在 `/studio` 按「建立 Resend 草稿」。**本站只建草稿**，到 Resend 寄測試信、確認後再發送。信尾自動帶網頁版連結與 Resend 退訂連結。
 
-後台 CSV 匯出仍含語言、退訂網址與一鍵退訂網址。歷期電子報放在 `content/newsletters/<語系>/<slug>.md`（格式同文章），顯示於 `/newsletter`。
+後台 CSV 匯出仍含語言、退訂網址與一鍵退訂網址。
+
+### 其他產品的電子報訂閱（PA Cafe）
+
+`POST /api/partner/newsletter` 給人蔘 Try Catch 的其他產品用，以共用密鑰 `NEWSLETTER_PARTNER_SECRET`（`wrangler secret put`，兩邊設同一個值）簽章，規格見 `lib/partner-auth.ts` 與路由註解。`action` 為 `status`、`subscribe`（需附同意版本與文字）或 `unsubscribe`，回傳該信箱目前的訂閱狀態。產品登入已驗證信箱，所以直接生效、不寄確認信；`source` 記為產品名稱，語言 zh-* 對應中文版，其餘對應英文版。歷期電子報放在 `content/newsletters/<語系>/<slug>.md`（格式同文章），顯示於 `/newsletter`。
 
 API 錯誤訊息依表單送出的 `X-Site-Locale` 回傳中文或英文（`lib/messages.ts`）；隱私說明有 `/privacy` 與 `/en/privacy`。
 
