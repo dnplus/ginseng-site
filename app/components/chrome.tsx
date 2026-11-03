@@ -49,7 +49,7 @@ export function PageTop(props: {locale: Locale; path: string; available?: readon
 
 export function SocialLinks({locale, className = 'hero-socials'}: {locale: Locale; className?: string}) {
   return <nav className={className} aria-label={dictionary(locale).home.socials}>{socials(locale).map(social =>
-    <a key={social.url} href={social.url} {...external}><SocialIcon social={social}/>{social.name} <span>{social.handle}</span><ArrowUpRight size={14}/></a>)}</nav>;
+    <a key={social.url} href={social.url} {...external}><SocialIcon social={social}/>{social.name}<ArrowUpRight size={14}/></a>)}</nav>;
 }
 
 export function SiteFooter({locale, path, available}: {locale: Locale; path: string; available?: readonly Locale[]}) {

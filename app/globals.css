@@ -307,7 +307,6 @@ textarea { min-height: 140px; resize: vertical; }
 /* Project and social entry points */
 .hero-socials { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 22px; }
 .hero-socials a { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 13px; font-weight: 750; color: var(--leaf-dk); }
-.hero-socials span { font-size: 12px; font-weight: 500; }
 .hero-socials a:hover { text-decoration: underline; text-underline-offset: 4px; }
 .projects { padding: 80px 0; background: var(--paper); scroll-margin-top: 24px; }
 .projects-intro { margin-top: 14px; color: var(--muted); }
