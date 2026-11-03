@@ -1,5 +1,5 @@
 import type { Locale } from './i18n';
-import { CHANNEL_URL } from './youtube';
+import { CHANNEL_URL } from './youtube.ts';
 
 export const BRAND = {zh: '人蔘 Try Catch', en: 'Ginseng Try Catch'} as const;
 export { CHANNEL_URL };

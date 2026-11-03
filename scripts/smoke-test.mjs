@@ -81,6 +81,9 @@ try {
   await page('/en/lab', 'Built it? It goes here first.');
   await page('/community', '一起實驗的人，聚在這裡。');
   await page('/en/community', 'Where the tinkerers hang out.');
+  const avatar = await fetch(`${origin}/assets/email/ginseng-avatar.png`);
+  assert.equal(avatar.status, 200, 'The email header avatar is served (emails load it from the live site).');
+  assert.ok(avatar.headers.get('content-type')?.includes('image/png'), 'The email avatar is a PNG, which every mail client shows.');
   const footer = await fetch(`${origin}/brand/footer.js`);
   assert.equal(footer.status, 200, 'The shared brand footer script is served.');
   assert.ok((await footer.text()).includes("customElements.define('ginseng-footer'"), 'The footer script defines <ginseng-footer>.');
