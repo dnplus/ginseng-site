@@ -12,6 +12,8 @@ const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang TC','Noto Sa
 const MONO = "ui-monospace,SFMono-Regular,Menlo,Consolas,monospace";
 
 export const escapeHtml = (text: string) => text.replace(/[&<>"']/g, character => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[character] ?? character));
+/** Inverse of `escapeHtml` for text that Markdown already escaped, so a second pass does not turn `&amp;` into `&amp;amp;`. */
+const unescapeHtml = (text: string) => text.replace(/&(?:amp|lt|gt|quot|#39);/g, entity => ({'&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'"}[entity] ?? entity));
 
 const TEXT: Record<Locale, {plaque: string; home: string; lab: string; community: string; watch: string; follow: string}> = {
   'zh-TW': {plaque: '<b style="font-size:16px">人蔘</b>&nbsp;TRY CATCH', home: 'ginseng.dnplus.dev', lab: '實驗室', community: '社群', watch: '▶&nbsp;看這集影片', follow: '追蹤人蔘'},
@@ -28,6 +30,7 @@ a{text-decoration-thickness:1px}
 .card{background:#1c3329!important;border-color:${C.band}!important}
 .card h1,.card h3,.card p,.card li,.card td,.card strong{color:${C.cream}!important}
 .card a{color:${C.band}!important}
+.card a.btn{color:${C.ink}!important}
 .card blockquote{background:${C.deep}!important}
 .card code{background:${C.deep}!important;color:${C.band}!important}
 .card .lead{color:#c9d8c6!important}
@@ -36,7 +39,7 @@ a{text-decoration-thickness:1px}
 
 /** A button that renders in Outlook too (a padded table cell, not a styled link alone). */
 export function button(href: string, label: string) {
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 20px"><tr><td style="border:2px solid ${C.ink};border-radius:12px;background:${C.peach};mso-padding-alt:12px 24px"><a href="${escapeHtml(href)}" style="display:inline-block;padding:12px 24px;font-family:${FONT};font-size:16px;font-weight:800;line-height:1.2;color:${C.ink};text-decoration:none">${label}</a></td></tr></table>`;
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 20px"><tr><td style="border:2px solid ${C.ink};border-radius:12px;background:${C.peach};mso-padding-alt:12px 24px"><a class="btn" href="${escapeHtml(href)}" style="display:inline-block;padding:12px 24px;font-family:${FONT};font-size:16px;font-weight:800;line-height:1.2;color:${C.ink};text-decoration:none">${label}</a></td></tr></table>`;
 }
 
 const youtubeId = (url: string) => /^https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?(?:[^"]*&)?v=|youtu\.be\/)([\w-]{11})/.exec(url)?.[1] ?? null;
@@ -59,7 +62,7 @@ export function styleContent(html: string, site: string, locale: Locale) {
   out = out.replace(/<p>\s*<a\s[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>\s*<\/p>/g, (whole, url: string, inner: string) => {
     const id = youtubeId(url.replaceAll('&amp;', '&'));
     if (!id) return whole;
-    const caption = inner.replace(/<[^>]+>/g, '').trim();
+    const caption = unescapeHtml(inner.replace(/<[^>]+>/g, '').trim());
     return videoCard(id, url.replaceAll('&amp;', '&'), caption && !/^https?:\/\//.test(caption) ? caption : null, locale);
   });
   const p = `margin:0 0 16px;font-family:${FONT};font-size:16px;line-height:1.85;color:${C.ink}`;

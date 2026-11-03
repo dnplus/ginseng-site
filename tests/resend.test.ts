@@ -78,6 +78,14 @@ test('a bare YouTube URL becomes a card without a caption; other lone links stay
   assert.ok(!plain.includes('hqdefault') && plain.includes('>Example</a>'));
 });
 
+test('video card captions decode Markdown entities once', async () => {
+  const {styleContent} = await import('../lib/email-layout.ts');
+  const html = styleContent('<p><a href="https://www.youtube.com/watch?v=tbj0Azzlguw">Cats &amp; dogs &lt;3 &quot;hi&quot; Tom&#39;s</a></p>', 'https://site.test', 'en');
+  const caption = 'Cats &amp; dogs &lt;3 &quot;hi&quot; Tom&#39;s';
+  assert.ok(html.includes(`>${caption}</p>`) && html.includes(`alt="${caption}"`));
+  assert.ok(!html.includes('&amp;amp;') && !html.includes('&amp;lt;') && !html.includes('&amp;quot;') && !html.includes('&amp;#39;'));
+});
+
 test('issue and confirmation emails share the branded shell', async () => {
   const {confirmationEmail} = await import('../lib/newsletter-email.ts');
   const confirm = confirmationEmail('https://site.test', 'en', 'a@example.test', '11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222');
@@ -87,4 +95,6 @@ test('issue and confirmation emails share the branded shell', async () => {
     assert.ok(html.includes('prefers-color-scheme:dark'), 'Dark mode styles are included.');
   }
   assert.ok(confirm.html.includes('https://site.test/en/newsletter/confirm?token=11111111-1111-4111-8111-111111111111'));
+  assert.match(confirm.html, /<a class="btn" href="[^"]+" style="[^"]*color:#263f35/);
+  assert.ok(confirm.html.includes('.card a.btn{color:#263f35!important}'), 'Dark mode keeps the peach confirm button in ink, not mint.');
 });
