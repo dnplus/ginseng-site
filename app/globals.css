@@ -392,11 +392,11 @@ a.hub-card:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(-
 .prose pre { overflow-x: auto; padding: 18px 20px; border-radius: 14px; background: var(--night); color: var(--night-text); font-size: 15px; line-height: 1.6; }
 .prose pre code { padding: 0; background: none; font-size: inherit; }
 .prose table { width: 100%; border-collapse: collapse; font-size: 16px; }
-.prose th, .prose td { padding: 8px 12px; border: 1px solid var(--line); text-align: left; }
+.prose th, .prose td { min-width: 6em; padding: 8px 12px; border: 1px solid var(--line); text-align: left; overflow-wrap: anywhere; }
 .prose hr { border: 0; border-top: 2px dashed var(--line); }
 .article-tags { display: flex; flex-wrap: wrap; gap: 8px; margin: 48px 0 0; padding: 0; list-style: none; }
 .article-tags li { padding: 2px 12px; border: 1.5px solid var(--leaf-dk); border-radius: 999px; background: var(--leaf-lt); font-size: 13px; font-weight: 700; }
-@media (max-width: 600px) { .post-card { grid-template-columns: 1fr; } .prose { font-size: 17px; } }
+@media (max-width: 600px) { .post-card { grid-template-columns: 1fr; } .prose { font-size: 17px; } .prose table { font-size: 14px; } .prose th, .prose td { padding: 6px 8px; } }
 .section-page.blog { padding-bottom: 88px; }
 .feed-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 14px; font-weight: 700; color: var(--leaf-dk); text-decoration: underline; text-underline-offset: 4px; }
 .newsletter-signup { max-width: 640px; margin-top: 28px; padding: 24px; border: 2px solid var(--leaf-dk); border-radius: 20px; background: var(--leaf-band); box-shadow: 5px 5px 0 var(--leaf-dk); }
