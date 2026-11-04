@@ -95,13 +95,14 @@ try {
     assert.ok(response.headers.get('content-type')?.includes(type), `${path} content type`);
     assert.ok((await response.text()).startsWith('<?xml'), `${path} is XML`);
   }
-  // Drafts never ship, so a drafted episode still points at its Notion article; unknown episodes go to the list.
-  for (const [path, target] of [['/ep/082', 'https://ginseng.notion.site/EP082-'], ['/ep/EP079', 'https://ginseng.notion.site/EP079-'], ['/ep/9999', `${origin}/blog`]]) {
+  // Episodes with an article on the site go there; unknown episodes go to the list.
+  for (const [path, target] of [['/ep/082', `${origin}/blog/ep082`], ['/ep/EP079', `${origin}/blog/ep079`], ['/ep/9999', `${origin}/blog`]]) {
     const response = await fetch(`${origin}${path}`, {redirect: 'manual'});
     assert.equal(response.status, 302, `${path} redirects`);
     assert.ok(response.headers.get('location')?.startsWith(target), `${path} redirects to ${target}`);
   }
-  assert.equal((await fetch(`${origin}/blog/ep079`)).status, 404, 'Draft posts are not published.');
+  await page('/blog/ep087', '一天空轉 288 次');
+  assert.equal((await fetch(`${origin}/blog/no-such-post`)).status, 404, 'Unknown posts are 404.');
   await page('/unsubscribe', '先在這裡，下車也沒關係。');
   const assetPaths = [...html.matchAll(/\b(?:src|href)="([^"\s]+\.(?:css|js)(?:\?[^"\s]*)?)"/g)]
     .map(match => new URL(match[1].replaceAll('&amp;', '&'), origin))
