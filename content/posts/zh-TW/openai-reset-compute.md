@@ -7,11 +7,6 @@ tags: [AI Agent, AI 工具]
 
 > 🔴 **OpenAI reset 狂歡背後的真相：**重置不只是在送額度，也會改變所有人的用量節奏。影片尾卡的 QR Code 指向本頁。
 
-## 發布資訊
-
-- YouTube（Private）：[Codex 重置一直送，為什麼你的額度反而越少？](https://youtube.com/watch?v=Ili5cz374qc)
-- 影片尾卡 QR Code：本頁
-- 本頁用途：整理算力供給、Rate Limit、後台調度與 reset 副作用
 
 ## 一句話結論
 

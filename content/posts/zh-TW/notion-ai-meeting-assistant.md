@@ -2,17 +2,11 @@
 title: "Notion AI 會議助手實戰：從開會一路接到派工"
 date: 2026-08-20
 summary: "AI 會議助手百百種；我最後選擇 Notion AI 會議助手，因為從會前、會中到會後派工都能留在同一個工作空間。"
-youtube: 154pYDoG2i0
 tags: [Notion, AI Agent, 教學入門]
 ---
 
 > 🎙️ AI 會議助手百百種；我最後選擇 **Notion AI 會議助手**，因為從會前、會中到會後派工都能留在同一個工作空間。影片尾卡的 QR Code 指向本頁。
 
-## 發布資訊
-
-- YouTube（Private）：[Notion AI 會議助手實戰：從開會、逐字稿一路接到自動派工](https://youtube.com/watch?v=154pYDoG2i0)
-- 影片尾卡 QR Code：本頁
-- 本頁用途：影片中的流程、設定重點與實作檢查清單
 
 ## 一句話結論
 
