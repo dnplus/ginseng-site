@@ -117,4 +117,4 @@ Victor Nunez 的公開貼文把 Astra Light 形容為速度快、對大部分任
 
 ![](/blog/gpt-6-astra-notion/zh-TW-02.svg)
 
-[開啟公開版 Notion 頁面](/blog/gpt-6-astra-notion)
+[開啟公開版 Notion 頁面](https://ginseng.notion.site/GPT-6-Astra-上架-Notion-測試成績與使用邊界-3d23be7297e28159919cd349dab4d26d)
