@@ -2,16 +2,9 @@
 title: "AI 訂閱不是固定商品：20 美金、Reset 與算力圈地戰"
 date: 2026-09-10
 summary: "同樣每個月付 20 美金，為什麼 AI 有時可以一路用，有時卻很快撞到限制？"
+youtube: ECqfhUoR-B4
 tags: [產業分析, 商業策略]
 ---
-
-## 排程（和真 2026-09-10）
-
-**已發布**
-
-- YT：[https://youtu.be/ECqfhUoR-B4](https://youtu.be/ECqfhUoR-B4)
-- X：[https://x.com/dnplus/status/2098021737581473897](https://x.com/dnplus/status/2098021737581473897)（5 則）
-- Threads：[https://www.threads.com/@ginsengtrycatch/post/DdG0KOFmygF](https://www.threads.com/@ginsengtrycatch/post/DdG0KOFmygF)（5 則）
 
 同樣每個月付 20 美金，為什麼 AI 有時可以一路用，有時卻很快撞到限制？
 
