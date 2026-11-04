@@ -1,0 +1,2648 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rate Limit 就是電網調度</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #0d1117;
+    font-family: "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+    color: #e6edf3;
+  }
+
+  #scene { position: fixed; inset: 0; }
+
+  /* 2D overlay：階梯 vs 曲線、負載波形這些本質是圖表的東西畫在這 */
+  #overlay {
+    position: fixed; inset: 0;
+    pointer-events: none;
+  }
+  #overlay svg { width: 100%; height: 100%; display: block; }
+
+  /* ---------- 字卡 ---------- */
+  #cards { position: fixed; inset: 0; pointer-events: none; }
+
+  .card {
+    position: absolute;
+    left: 5vw; top: 50%;
+    transform: translateY(-50%) translateX(-28px);
+    width: min(400px, 34vw);
+    padding: 28px 30px;
+    background: rgba(13, 17, 23, 0.82);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-left: 3px solid #58a6ff;
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity .6s ease, transform .6s cubic-bezier(.2,.7,.3,1);
+  }
+  .card.on { opacity: 1; transform: translateY(-50%) translateX(0); }
+
+  .card .step {
+    font-size: 12px; letter-spacing: .22em;
+    color: #7d8590; margin-bottom: 14px;
+  }
+  .card h2 {
+    font-size: clamp(24px, 2.2vw, 31px); font-weight: 700; line-height: 1.3;
+    margin-bottom: 16px; letter-spacing: .01em;
+  }
+  .card p {
+    font-size: clamp(14px, 1.05vw, 16px); line-height: 1.85; color: #b9c2cc;
+  }
+  .card p + p { margin-top: 12px; }
+  .card .hi  { color: #ffa657; font-weight: 600; }
+  .card .bad { color: #ff7b72; font-weight: 600; }
+  .card .good{ color: #7ee787; font-weight: 600; }
+  .card .dim { color: #7d8590; }
+
+  .card[data-tone="warn"] { border-left-color: #ffa657; }
+  .card[data-tone="bad"]  { border-left-color: #ff7b72; }
+  .card[data-tone="good"] { border-left-color: #7ee787; }
+
+  /* 陰謀論那幕：虛線框，跟前面幾幕的「機制說明」視覺上分開 */
+  .card[data-tone="guess"] {
+    border-left: 3px dashed #d2a8ff;
+    background: rgba(19, 15, 26, 0.86);
+  }
+  .card[data-tone="guess"] .hi { color: #d2a8ff; }
+  /* 第 5 幕補充較多，維持 16:9 時不遮住左上角圖例。 */
+  .card[data-i="4"] { top: 55%; padding: 22px 26px; }
+  .card[data-i="4"] h2 { margin-bottom: 12px; }
+  .card[data-i="4"] p { line-height: 1.6; }
+  .card[data-i="4"] p + p { margin-top: 8px; }
+  .card[data-i="3"] { top: 54%; padding: 24px 28px; }
+  .card[data-i="3"] p { line-height: 1.7; }
+  .card[data-i="3"] p + p { margin-top: 9px; }
+  .card .chip {
+    display: inline-block;
+    font-size: 11px; letter-spacing: .16em;
+    color: #d2a8ff; border: 1px dashed #6b4e91;
+    border-radius: 3px; padding: 3px 9px;
+    margin-bottom: 12px;
+  }
+
+  /* ---------- 結語 ---------- */
+  #outro {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center; padding: 40px;
+    background: rgba(13, 17, 23, .90);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    opacity: 0; pointer-events: none;
+    transition: opacity .9s ease;
+  }
+  #outro.on { opacity: 1; }
+  #outro .lead {
+    font-size: 15px; letter-spacing: .3em;
+    color: #7d8590; margin-bottom: 26px;
+  }
+  #outro h1 {
+    font-size: clamp(30px, 4.4vw, 56px);
+    font-weight: 800; line-height: 1.35;
+    margin-bottom: 30px;
+  }
+  #outro h1 .u {
+    background: linear-gradient(transparent 66%, rgba(88,166,255,.34) 66%);
+  }
+  #outro .sub {
+    font-size: clamp(16px, 1.7vw, 21px);
+    line-height: 2; color: #b9c2cc;
+    max-width: 820px;
+  }
+  #outro .sub .k { color: #e6edf3; font-weight: 600; }
+  #outro .kicker {
+    margin-top: 34px;
+    font-size: clamp(15px, 1.5vw, 19px);
+    line-height: 1.9; color: #d2a8ff;
+    max-width: 760px;
+    padding: 18px 24px;
+    border: 1px dashed #4a3a63;
+    border-radius: 4px;
+  }
+  #outro .cite {
+    margin-top: 34px; font-size: 13px;
+    color: #6e7681; letter-spacing: .05em;
+  }
+
+  /* ---------- 進度 / 提示 ---------- */
+  #dots {
+    position: fixed; bottom: 34px; left: 50%;
+    transform: translateX(-50%);
+    display: flex; gap: 11px;
+  }
+  #dots i {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #30363d; display: block;
+    transition: all .4s ease;
+  }
+  #dots i.on { background: #58a6ff; width: 26px; border-radius: 4px; }
+
+  #hint {
+    position: fixed; bottom: 32px; right: 34px;
+    font-size: 12px; color: #6e7681; letter-spacing: .05em;
+    text-align: right; line-height: 1.9;
+  }
+  #hint kbd {
+    background: #21262d; border: 1px solid #30363d;
+    border-radius: 4px; padding: 2px 7px;
+    font-family: inherit; font-size: 11px; color: #b9c2cc;
+  }
+  #autoLabel.auto, #orbitLabel.auto { color: #58a6ff; }
+
+  /* 固定圖例：整支動畫的視覺語彙只有這三個，常駐避免每幕重新猜 */
+  #keymap {
+    position: fixed; left: 34px; top: 62px;
+    display: flex; flex-direction: column; gap: 7px;
+    font-size: 12px; color: #8b949e; letter-spacing: .04em;
+  }
+  #keymap .k { display: flex; align-items: center; gap: 9px; }
+  #keymap .sw { width: 13px; height: 13px; border-radius: 2px; display: block; }
+  #keymap .sw.plant { background: #66788d; }
+  #keymap .sw.wire  { background: #3b556f; height: 3px; border-radius: 1px; }
+  #keymap .sw.house { background: #5c6675; }
+
+  #title {
+    position: fixed; top: 32px; left: 34px;
+    font-size: 12px; letter-spacing: .2em; color: #6e7681;
+  }
+
+  #loading {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; letter-spacing: .2em; color: #6e7681;
+    background: #0d1117; z-index: 50;
+    transition: opacity .5s ease;
+  }
+  #loading.off { opacity: 0; pointer-events: none; }
+
+  @media (max-width: 900px) {
+    .card { width: auto; right: 5vw; top: auto; bottom: 88px;
+            transform: translateX(0) translateY(20px); }
+    .card.on { transform: translateX(0) translateY(0); }
+    #hint { display: none; }
+    #keymap { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="scene"></div>
+<div id="overlay"></div>
+
+<div id="title">RATE LIMIT · 算力電網調度</div>
+
+<div id="cards">
+  <div class="card" data-i="0">
+    <div class="step">第 1 幕 / 共 6 幕</div>
+    <h2>算力就是發電廠</h2>
+    <p>用的人是<span class="hi">一條平順往上的線</span>，每天都比昨天多一點。</p>
+    <p>但算力不是水龍頭。拉電、拉水、<span class="hi">等 GPU 到貨</span>，
+       一次只能<span class="hi">跳一大階</span>。</p>
+    <p>線跑到階梯<span class="bad">上面</span>的那段空隙，<br>
+       就是你會被排隊、被限速的地方。</p>
+  </div>
+
+  <div class="card" data-i="1" data-tone="warn">
+    <div class="step">第 2 幕 / 共 6 幕</div>
+    <h2>人變多，而且每個人都變超吃電</h2>
+    <p>Codex 半年從 1M 衝到 <span class="hi">15M</span>，光最後 31 天就 +9M。</p>
+    <p>更麻煩的是<span class="hi">用法變了</span>。聊天是一顆燈泡：問一句、答一句。</p>
+    <p>Agent 是<span class="bad">一整間工廠</span>——自己讀檔、自己跑測試、自己重試，
+       一個任務燒掉幾十萬字。<br>
+       <span class="dim">同樣算「一個人」，用電差幾十倍。</span></p>
+  </div>
+
+  <div class="card" data-i="2" data-tone="bad">
+    <div class="step">第 3 幕 / 共 6 幕</div>
+    <h2>那為什麼沒有真的爆掉？</h2>
+    <p><span class="dim">先看不限流會怎樣：</span>請求一次全部灌進來，
+       一台<span class="bad">先撐不住倒下</span>，它的量倒給旁邊，旁邊也倒，
+       <span class="bad">一台接一台</span>，最後整批失敗。</p>
+    <p><span class="good">但這沒發生。</span>因為最前面有一道<span class="hi">rate limit</span>：
+       超過容量的請求<span class="hi">先在門口排隊</span>——電廠一座都沒跳。</p>
+    <p>代價是<span class="hi">你要等</span>。<br>
+       <span class="dim">它不是在 PUA 你，它就是「沒爆掉」的原因。</span></p>
+  </div>
+
+  <div class="card" data-i="3">
+    <div class="step">第 4 幕 / 共 6 幕</div>
+    <h2>後台偷偷做的三件事</h2>
+    <p><span class="hi">① 排隊</span>——讓你慢一點，但不讓系統爆掉。</p>
+    <p><span class="hi">② 分流</span>——丟到還有空的機器，忙的時候悄悄換小模型。</p>
+    <p><span class="hi">③ 挑時間</span>——不急的往半夜擠，最忙的時段壓小，不同客戶錯開。</p>
+    <p><span class="good">7× 尖峰，被攤平回 1× 穩態。</span></p>
+  </div>
+
+  <div class="card" data-i="4" data-tone="guess">
+    <div class="step">第 5 幕 / 共 6 幕</div>
+    <span class="chip">合理的陰謀論</span>
+    <h2>那座一直暗著的電廠</h2>
+    <p>部分算力被企業<span class="hi">長約包走</span>，閒著也是浪費；訂閱用戶剛好拿來填空檔。</p>
+    <p>所以它從不保證固定用量：<span class="hi">有空就多送，一忙就收回</span>。</p>
+    <p><span class="hi">/fast</span> 可能先快後慢；很忙的時候連原速都被壓。</p>
+    <p>Tibo 按 reset、拿掉 5h 窗口，同時也在<span class="hi">重排隊列、打散尖峰</span>。</p>
+  </div>
+
+  <div class="card" data-i="5" data-tone="good">
+    <div class="step">第 6 幕 / 共 6 幕</div>
+    <h2>為什麼 8/20 之後特別有感</h2>
+    <p>像時間電價：大家擠在同一個小時，壓力最大。</p>
+    <p>8/20 Tibo 一按 reset，<span class="bad">全員同時開跑</span>，體感消耗更快。</p>
+    <p>5h 限制拿掉，需求不再被切開，尖峰<span class="bad">更集中</span>。</p>
+    <p><span class="good">總量未必變，峰值先翻倍。</span> 把 reset 錯開，就是在壓峰值。</p>
+  </div>
+</div>
+
+<div id="outro">
+  <div class="lead">結論</div>
+  <h1>算力<span class="u">一階一階長</span><br>需求天天在長</h1>
+  <div class="sub">
+    <p><span class="k">rate limit</span> 只是一道閥門，不是整套解法。</p>
+    <p>真正的解法是 <span class="k">排隊、分流、挑時間</span> 一起把尖峰壓平。</p>
+  </div>
+  <div class="kicker">
+    <b>Tibo 按 reset，不只是發福利。</b><br>
+    所有人的週期被重新對齊、隊列被打散——<br>
+    那顆重置鍵，同時也是調度鍵。
+  </div>
+  <div class="cite">算力一階一階長 · 企業長約包走 · 大家同時衝　·　算力有交期，需求沒有</div>
+</div>
+
+<div id="dots"></div>
+
+<div id="keymap">
+  <div class="k"><i class="sw plant"></i>電廠 = 算力（機房）</div>
+  <div class="k"><i class="sw wire"></i>電網 = 排隊／分流的地方</div>
+  <div class="k"><i class="sw house"></i>房子／廠房 = 用的人（你）</div>
+</div>
+
+<div id="hint">
+  <kbd>Space</kbd> / <kbd>→</kbd> 下一幕　<kbd>←</kbd> 上一幕<br>
+  <kbd>A</kbd> <span id="autoLabel">自動播放</span>　<kbd>V</kbd> <span id="orbitLabel">視角旋轉</span>　<kbd>R</kbd> 重來
+</div>
+
+<div id="loading">載入中…</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+/* ============================================================
+   極簡幾何：機櫃 = 方塊，負載 = 流動光點。
+   本質是圖表的東西（階梯 vs 曲線、負載波形）交給 2D overlay，
+   不硬塞進透視相機裡被壓扁。
+   ============================================================ */
+
+const host = document.getElementById('scene');
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+host.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0d1117);
+
+const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.1, 400);
+
+scene.add(new THREE.HemisphereLight(0x8fb6ff, 0x151b23, 0.85));
+
+const key = new THREE.DirectionalLight(0xffffff, 2.3);
+key.position.set(14, 26, 12);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.near = 1;
+key.shadow.camera.far = 110;
+const S = 34;
+Object.assign(key.shadow.camera, { left: -S, right: S, top: S, bottom: -S });
+key.shadow.camera.updateProjectionMatrix();
+scene.add(key);
+
+const fill = new THREE.DirectionalLight(0x58a6ff, 0.75);
+fill.position.set(-13, 9, -12);
+scene.add(fill);
+
+const ground = new THREE.Mesh(
+  new THREE.CircleGeometry(90, 64),
+  new THREE.MeshStandardMaterial({ color: 0x151b23, roughness: .95 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+const grid = new THREE.GridHelper(120, 40, 0x2a3441, 0x1b232d);
+grid.position.y = 0.01;
+scene.add(grid);
+
+/* ============================================================
+   尺寸
+   ============================================================ */
+const RW = 3.4;        // 機組寬（橫向擺，不往上疊）
+const RD = 2.0;        // 機櫃深
+const RH = 2.6;        // 機組高（矮胖，才不像住宅樓）
+const RGAP = 0.12;
+const RSTEP = RH + RGAP;
+
+/* 供給階梯：4 階，每階「多幾層機櫃」。
+   階梯高度就是裝置容量 —— 這是全片的量尺。 */
+/* 每一階 = 「累積幾座電廠在發電」。四階 → 1,2,3,4 座。 */
+const TIERS = [1, 2, 3, 4];
+const MAX_TIER = TIERS[TIERS.length - 1];
+const SUPPLY_H = MAX_TIER * RSTEP;
+
+/* ============================================================
+   三個角色，位置固定，整支動畫不換位 —— 這是視覺語彙的基礎：
+     電廠 (provider)  ── 左邊，發電的地方（算力）
+     電線桿 + 電線     ── 中間，電網（rate limit 就發生在這）
+     房子 (負載)       ── 右邊，用電的人（agent / 聊天）
+   ============================================================ */
+const ZONE_PLANT = -17;      // 電廠區中心 x
+const ZONE_GRID  = 0;        // 電網區（電線桿）中心 x
+const ZONE_HOUSE = 18;       // 住宅區中心 x
+
+/* 電廠：3 座（用來演路由分流跟跳脫連鎖），沿 z 排開 */
+/* 4 座電廠，正好對應 2D 階梯的 4 階：
+   第 n 階跳上去 = 第 n 座電廠蓋好發電。動畫跟圖表同步。 */
+const PLANT_Z = [-15, -5, 5, 15];
+const PLANT_X = PLANT_Z.map(() => ZONE_PLANT);
+
+const M = {
+  rack:     new THREE.MeshStandardMaterial({ color: 0x5f6e82, roughness: .7, metalness: .18 }),
+  rackLive: new THREE.MeshStandardMaterial({ color: 0x66788d, roughness: .55, metalness: .25,
+                                             emissive: 0x12294a, emissiveIntensity: .9 }),
+  rackHot:  new THREE.MeshStandardMaterial({ color: 0x6b4340, roughness: .6, metalness: .2,
+                                             emissive: 0x5c1512, emissiveIntensity: 1.1 }),
+  rackDead: new THREE.MeshStandardMaterial({ color: 0x24292f, roughness: .95, metalness: .05 }),
+  rackNew:  new THREE.MeshStandardMaterial({ color: 0x9a6bd1, roughness: .6, metalness: .2,
+                                             emissive: 0x48206b, emissiveIntensity: .9 }),
+  rackLock: new THREE.MeshStandardMaterial({ color: 0x704f9f, roughness: .8, metalness: .12,
+                                             emissive: 0x3a205c, emissiveIntensity: .8 }),
+  panel:    new THREE.MeshStandardMaterial({ color: 0x1c242e, roughness: .35, metalness: .5 }),
+  pad:      new THREE.MeshStandardMaterial({ color: 0x5a6675, roughness: .88 }),
+  furnace:  new THREE.MeshStandardMaterial({ color: 0xff7b72, roughness: .45, metalness: .3,
+                                             emissive: 0x7a2320, emissiveIntensity: 1.2 }),
+  tower:    new THREE.MeshStandardMaterial({ color: 0x30465d, roughness: .62, metalness: .28,
+                                             emissive: 0x0b1f33, emissiveIntensity: .45 }),
+  wire:     new THREE.MeshBasicMaterial({ color: 0xffa657, wireframe: true,
+                                          transparent: true, opacity: .85 }),
+  wireDim:  new THREE.MeshBasicMaterial({ color: 0x58a6ff, wireframe: true,
+                                          transparent: true, opacity: .35 }),
+  line:     new THREE.LineBasicMaterial({ color: 0x58a6ff, transparent: true, opacity: .9 }),
+  lineDim:  new THREE.LineBasicMaterial({ color: 0x58a6ff, transparent: true, opacity: .3 }),
+  lineBad:  new THREE.LineBasicMaterial({ color: 0xff7b72, transparent: true, opacity: .9 }),
+  lineGood: new THREE.LineBasicMaterial({ color: 0x7ee787, transparent: true, opacity: .9 })
+};
+
+/* 光點材質：一個負載請求 = 一顆光點。用 Basic 才不會被光影吃掉亮度 */
+const dotMat = {
+  normal: new THREE.MeshBasicMaterial({ color: 0x79c0ff }),
+  drop:   new THREE.MeshBasicMaterial({ color: 0xff7b72 }),
+  ok:     new THREE.MeshBasicMaterial({ color: 0x7ee787 }),
+  sub:    new THREE.MeshBasicMaterial({ color: 0xd2a8ff })
+};
+const G = {
+  dot:  new THREE.SphereGeometry(0.16, 10, 8),
+  rack: new THREE.BoxGeometry(RW, RH, RD)
+};
+
+/* ------------------------------------------------------------
+   一個「看得出是機櫃」的單元：本體 + 正面面板 + 一排指示燈條
+   （純灰盒子看不出在演什麼）
+   ------------------------------------------------------------ */
+function makeRack(mat) {
+  const g = new THREE.Group();
+
+  const body = new THREE.Mesh(G.rack, mat);
+  body.castShadow = body.receiveShadow = true;
+  g.add(body);
+  g.userData.body = body;
+
+  // 正面面板：深色一片，看得出有「正面」
+  const face = new THREE.Mesh(
+    new THREE.BoxGeometry(RW * 0.88, RH * 0.7, 0.06), M.panel
+  );
+  face.position.z = RD / 2 + 0.02;
+  g.add(face);
+
+  // 指示燈條：三顆，亮度隨負載變 → 看得出機器在不在跑
+  const leds = [];
+  for (let i = -1; i <= 1; i++) {
+    const led = new THREE.Mesh(
+      new THREE.BoxGeometry(0.14, 0.14, 0.05),
+      new THREE.MeshBasicMaterial({ color: 0x1f6feb })
+    );
+    led.position.set(i * 0.42, RH * 0.22, RD / 2 + 0.06);
+    g.add(led);
+    leds.push(led);
+  }
+  g.userData.leds = leds;
+
+  // 頂蓋：疊起來才有「一層一層」的節奏
+  const lip = new THREE.Mesh(
+    new THREE.BoxGeometry(RW + 0.16, 0.08, RD + 0.16), M.panel
+  );
+  lip.position.y = RH / 2;
+  lip.castShadow = true;
+  g.add(lip);
+
+  return g;
+}
+
+function setRackMat(rack, mat) {
+  rack.userData.body.material = mat;
+}
+function setLed(rack, color, on = true) {
+  rack.userData.leds.forEach(l => {
+    l.material.color.setHex(on ? color : 0x1a1f27);
+  });
+}
+
+/* ============================================================
+   場景物件
+   ============================================================ */
+
+/* ============================================================
+   電廠：大座、少量、矮胖。
+   一座電廠 = 一片大基座 + 一排「機組」+ 冷卻塔 + 煙囪。
+   擴容是「橫向多加一台機組」，不是往上疊樓 ——
+   往上疊會長得像住宅樓，那是負載，不是電廠。
+   ============================================================ */
+
+/* 機組沿 z 方向排開（每座電廠內部），所以基座要夠長 */
+const UNIT_GAP = 0.35;
+const UNIT_STEP = RD + UNIT_GAP;
+const UNITS_PER_PLANT = 3;                  // 一座電廠固定 3 台機組
+const PAD_LEN = Math.max(UNITS_PER_PLANT * UNIT_STEP + 1.6, 11.5);
+
+const pads = PLANT_X.map((x, pi) => {
+  const p = new THREE.Mesh(
+    new THREE.BoxGeometry(7.4, 0.5, PAD_LEN), M.pad
+  );
+  p.position.set(x, 0.25, PLANT_Z[pi]);
+  p.castShadow = p.receiveShadow = true;
+  p.visible = false;
+  scene.add(p);
+  return p;
+});
+const PAD_TOP = 0.5;
+
+/** 一台「機組」：矮胖的方塊 + 正面面板 + 燈條 + 頂上一支小煙囪。
+    橫向排列，所以每一台都自己有辨識度。 */
+function makeUnit(mat) {
+  const g = new THREE.Group();
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(RW, RH, RD), mat);
+  body.castShadow = body.receiveShadow = true;
+  g.add(body);
+  g.userData.body = body;
+
+  // 正面面板
+  const face = new THREE.Mesh(
+    new THREE.BoxGeometry(RW * 0.8, RH * 0.5, 0.06), M.panel
+  );
+  face.position.set(0, -RH * 0.08, RD / 2 + 0.02);
+  g.add(face);
+
+  // 燈條：3 顆，狀態就靠這排燈表達（機身不變色）
+  const leds = [];
+  for (let i = -1; i <= 1; i++) {
+    const led = new THREE.Mesh(
+      new THREE.BoxGeometry(0.2, 0.2, 0.05),
+      new THREE.MeshBasicMaterial({ color: 0x1f6feb })
+    );
+    led.position.set(i * 0.62, RH * 0.24, RD / 2 + 0.06);
+    g.add(led);
+    leds.push(led);
+  }
+  g.userData.leds = leds;
+
+  // 屋脊：一條橫樑，看得出是廠房不是箱子
+  const ridge = new THREE.Mesh(
+    new THREE.BoxGeometry(RW + 0.24, 0.18, 0.5), M.panel
+  );
+  ridge.position.y = RH / 2 + 0.09;
+  ridge.castShadow = true;
+  g.add(ridge);
+
+  return g;
+}
+
+/* 電廠本體：每座 MAX_TIER 台機組，沿 z 排開 */
+const plants = PLANT_X.map((x, pi) => {
+  const units = [];
+  for (let i = 0; i < UNITS_PER_PLANT; i++) {
+    const u = makeUnit(M.rack);
+    const z = PLANT_Z[pi] - (UNITS_PER_PLANT - 1) * UNIT_STEP / 2 + i * UNIT_STEP;
+    u.position.set(x, PAD_TOP + RH / 2, z);
+    u.userData.baseY = u.position.y;
+    u.userData.z = z;
+    u.userData.pi = pi;
+    u.userData.level = i;
+    u.visible = false;
+    scene.add(u);
+    units.push(u);
+  }
+  return units;
+});
+
+/* 冷卻塔 + 大煙囪：讓人一眼認出「這是電廠」的關鍵。
+   座標規則：全部「坐在基座頂面 PAD_TOP 上」——
+   CylinderGeometry 的原點在中心，所以 y 一定要是 PAD_TOP + 高度/2，
+   不能直接給高度，否則會半截埋進地面或浮在空中。
+   x 也要留在基座範圍內（基座寬 RW+2.4，半寬約 2.9）。 */
+const stacks = [];
+const towerMat = new THREE.MeshStandardMaterial({ color: 0x6a7484, roughness: .85 });
+const chimMat  = new THREE.MeshStandardMaterial({ color: 0x8a939f, roughness: .8 });
+const bandMat  = new THREE.MeshStandardMaterial({ color: 0xc4564e, roughness: .7 });
+
+PLANT_X.forEach((x, pi) => {
+  const g = new THREE.Group();
+  const zc = PLANT_Z[pi];
+  const TX = x - 1.6;              // 塔擺在基座內側（不出基座）
+
+  // 冷卻塔 ×2：下段錐台 + 上段錐台，接縫對齊，整體坐在基座上
+  [-1, 1].forEach(sz => {
+    const H1 = 2.4, H2 = 1.4;
+    const lower = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.30, 1.75, H1, 18, 1, true), towerMat
+    );
+    lower.position.set(TX, PAD_TOP + H1 / 2, zc + sz * 3.2);
+    lower.castShadow = lower.receiveShadow = true;
+    g.add(lower);
+
+    const upper = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.52, 1.30, H2, 18, 1, true), towerMat
+    );
+    upper.position.set(TX, PAD_TOP + H1 + H2 / 2, zc + sz * 3.2);
+    upper.castShadow = true;
+    g.add(upper);
+
+    // 塔底一圈裙座：把「坐在地上」講清楚，開口圓柱才不會看起來飄
+    const skirt = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.80, 1.90, 0.22, 18), towerMat
+    );
+    skirt.position.set(TX, PAD_TOP + 0.11, zc + sz * 3.2);
+    skirt.castShadow = skirt.receiveShadow = true;
+    g.add(skirt);
+  });
+
+  // 大煙囪：坐在基座上，高度 7，所以中心在 PAD_TOP + 3.5
+  const CH_H = 7.0;
+  const chim = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.36, 0.50, CH_H, 14), chimMat
+  );
+  chim.position.set(x + 1.7, PAD_TOP + CH_H / 2, zc);
+  chim.castShadow = true;
+  g.add(chim);
+  // 紅白環：位置用「離基座多高」表示，跟著煙囪走
+  [CH_H * 0.62, CH_H * 0.82].forEach(hy => {
+    const band = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.42, 0.44, 0.45, 14), bandMat
+    );
+    band.position.set(x + 1.7, PAD_TOP + hy, zc);
+    g.add(band);
+  });
+
+  g.visible = false;
+  scene.add(g);
+  stacks.push(g);
+});
+
+/* ---- 「還沒蓋好」的下一座電廠：整座用線框標（在交期裡）---- */
+const pendingGhosts = [];
+{
+  // 第 4 座（最後一階）還沒到位 → 用線框把它整座標出來
+  const pi = PLANT_X.length - 1;
+  for (let i = 0; i < UNITS_PER_PLANT; i++) {
+    const gh = new THREE.Mesh(new THREE.BoxGeometry(RW, RH, RD), M.wireDim);
+    const z = PLANT_Z[pi] - (UNITS_PER_PLANT - 1) * UNIT_STEP / 2 + i * UNIT_STEP;
+    gh.position.set(PLANT_X[pi], PAD_TOP + RH / 2, z);
+    gh.visible = false;
+    scene.add(gh);
+    pendingGhosts.push(gh);
+  }
+}
+
+/* ---- 契約用戶（第 5 幕）：住宅區右側的紫色房群 ---- */
+/* 這組紫色物件是住宅區裡的契約用戶，不是電廠。
+   它從第 1 幕就在場，只是燈是暗的；第 5 幕才揭露它被拿來做什麼。 */
+const CONTRACT_X = ZONE_HOUSE + 9.5;
+const CONTRACT_Z = -4.0;
+const CONTRACT_HOUSE_W = 2.6;
+const CONTRACT_HOUSE_H = 1.8;
+const CONTRACT_HOUSE_D = 2.2;
+const CONTRACT_HOUSE_STEP = 3.0;
+const CONTRACT_ROOF_MAT = new THREE.MeshStandardMaterial({
+  color: 0x3b2a56, roughness: .78, metalness: .08
+});
+
+/* 契約用戶是住宅區裡的紫色房子，不再用電廠機櫃的外型冒充。 */
+function makeContractHouse(mat) {
+  const g = makeHouse(CONTRACT_HOUSE_W, CONTRACT_HOUSE_H, CONTRACT_HOUSE_D,
+                      mat, CONTRACT_ROOF_MAT);
+  g.userData.body = g.children[0];
+  const led = new THREE.Mesh(
+    new THREE.BoxGeometry(0.30, 0.18, 0.05),
+    new THREE.MeshBasicMaterial({ color: 0xd2a8ff })
+  );
+  led.position.set(0, CONTRACT_HOUSE_H * 0.58, CONTRACT_HOUSE_D / 2 + 0.06);
+  g.add(led);
+  g.userData.leds = [led];
+  return g;
+}
+
+const contractPad = new THREE.Mesh(
+  new THREE.BoxGeometry(CONTRACT_HOUSE_W + 1.6, 0.5,
+                        MAX_TIER * CONTRACT_HOUSE_STEP + 1.5), M.pad
+);
+contractPad.position.set(CONTRACT_X, 0.25, CONTRACT_Z);
+contractPad.castShadow = contractPad.receiveShadow = true;
+contractPad.visible = false;
+scene.add(contractPad);
+
+const contractRacks = [];
+for (let i = 0; i < MAX_TIER; i++) {
+  const r = makeContractHouse(M.rackLock);
+  r.position.set(CONTRACT_X, 0,
+                 CONTRACT_Z - 1.5 * CONTRACT_HOUSE_STEP + i * CONTRACT_HOUSE_STEP);
+  r.userData.baseY = r.position.y;
+  r.visible = false;
+  scene.add(r);
+  contractRacks.push(r);
+}
+
+/* 「保證供電量：—」的牌子：一片空白板，插在契約機組前面 */
+const signBoard = new THREE.Group();
+signBoard.visible = false;
+scene.add(signBoard);
+{
+  const post = new THREE.Mesh(new THREE.BoxGeometry(0.14, 2.2, 0.14), M.pad);
+  post.position.set(CONTRACT_X + 4.6, 1.1, CONTRACT_Z);
+  post.castShadow = true;
+  signBoard.add(post);
+
+  const board = new THREE.Mesh(
+    new THREE.BoxGeometry(3.0, 1.1, 0.08),
+    new THREE.MeshStandardMaterial({ color: 0x2b2536, roughness: .7,
+                                     emissive: 0x1a1226, emissiveIntensity: .6 })
+  );
+  board.position.set(CONTRACT_X + 4.6, 2.4, CONTRACT_Z);
+  board.castShadow = true;
+  signBoard.add(board);
+
+  // 板面上一條空白的破折號 —— 「量」那一欄永遠是空的
+  const dash = new THREE.Mesh(
+    new THREE.BoxGeometry(0.7, 0.11, 0.04),
+    new THREE.MeshBasicMaterial({ color: 0xd2a8ff })
+  );
+  dash.position.set(CONTRACT_X + 4.66, 2.3, CONTRACT_Z);
+  signBoard.add(dash);
+
+  // 上方一排小刻度，看得出這裡「本來該寫個數字」
+  for (let i = -2; i <= 2; i++) {
+    const t = new THREE.Mesh(
+      new THREE.BoxGeometry(0.06, 0.16, 0.04),
+      new THREE.MeshBasicMaterial({ color: 0x6b4e91 })
+    );
+    t.position.set(CONTRACT_X + 4.66, 2.72, CONTRACT_Z + i * 0.5);
+    signBoard.add(t);
+  }
+}
+
+/* ============================================================
+   電線桿 + 電線：這就是「電網」。
+   從電廠一路排到住宅區，電線在桿子之間垂成弧線（catenary）。
+   rate limit 發生的地方就在這條線上 —— 所以閘門也立在這裡。
+   ============================================================ */
+/* 電線桿從電廠一路排到住宅區。密一點才像一條真的輸電線路，
+   而不是中間插幾根裝飾。ZONE_PLANT=-17，ZONE_HOUSE=18。 */
+const PYLON_XS = (() => {
+  const xs = [];
+  for (let x = -13; x <= 15; x += 3.5) xs.push(x);
+  return xs;
+})();
+const PYLON_H = 6.4;
+const gridLines = new THREE.Group();
+scene.add(gridLines);
+
+const pylons = PYLON_XS.map(px => {
+  const g = new THREE.Group();
+  // 桿身
+  const pole = new THREE.Mesh(
+    new THREE.BoxGeometry(0.28, PYLON_H, 0.28), M.pad
+  );
+  pole.position.y = PYLON_H / 2;
+  pole.castShadow = true;
+  g.add(pole);
+  // 橫擔：上下兩層，看得出是電線桿不是柱子
+  [PYLON_H - 0.5, PYLON_H - 1.5].forEach((hy, k) => {
+    const arm = new THREE.Mesh(
+      new THREE.BoxGeometry(0.12, 0.12, 2.6 - k * 0.7), M.pad
+    );
+    arm.position.set(0, hy, 0);
+    arm.castShadow = true;
+    g.add(arm);
+    // 礙子：兩端各一顆小白點
+    [-1, 1].forEach(sz => {
+      const ins = new THREE.Mesh(
+        new THREE.BoxGeometry(0.16, 0.2, 0.16),
+        new THREE.MeshStandardMaterial({ color: 0x8b98a8, roughness: .5 })
+      );
+      ins.position.set(0, hy + 0.16, sz * (1.3 - k * 0.35));
+      g.add(ins);
+    });
+  });
+  g.position.set(px, 0, 0);
+  gridLines.add(g);
+  return g;
+});
+
+/* 電線：相鄰桿子之間垂弧。用細長 box 串成折線（幾何維持極簡）。
+   電線會「通電發亮」——負載流過時亮起來，這是全片表示「有電在走」的方式。 */
+const wires = [];
+{
+  const SEG = 9;
+  const wireMat = new THREE.MeshBasicMaterial({
+    color: 0x3b556f, transparent: true, opacity: .9
+  });
+  for (let i = 0; i < PYLON_XS.length - 1; i++) {
+    const x0 = PYLON_XS[i], x1 = PYLON_XS[i + 1];
+    [1, -1].forEach(sz => {
+      const strand = [];
+      for (let k = 0; k < SEG; k++) {
+        const t0 = k / SEG, t1 = (k + 1) / SEG;
+        const sag = 0.55;
+        const y0 = PYLON_H - 0.34 - Math.sin(t0 * Math.PI) * sag;
+        const y1 = PYLON_H - 0.34 - Math.sin(t1 * Math.PI) * sag;
+        const ax = x0 + (x1 - x0) * t0, bx = x0 + (x1 - x0) * t1;
+        const len = Math.hypot(bx - ax, y1 - y0);
+        const seg = new THREE.Mesh(
+          new THREE.BoxGeometry(len, 0.05, 0.05), wireMat.clone()
+        );
+        seg.position.set((ax + bx) / 2, (y0 + y1) / 2, sz * 1.3);
+        seg.rotation.z = Math.atan2(y1 - y0, bx - ax);
+        gridLines.add(seg);
+        strand.push(seg);
+      }
+      wires.push(strand);
+    });
+  }
+}
+
+/** 讓電線「通電」：0 = 沒電（暗），1 = 滿載（亮）。
+    過載時給紅色，正常給藍色，被限流時給橘色 —— 跟光點同一套色。 */
+function energizeWires(level, color = 0x58a6ff) {
+  const c = new THREE.Color(color);
+  wires.forEach(strand => strand.forEach(seg => {
+    seg.material.color.copy(c).multiplyScalar(0.30 + 0.70 * level);
+    seg.material.opacity = 0.55 + 0.45 * level;
+  }));
+}
+
+/* ============================================================
+   房子：負載。一般聊天 = 小房子；agent = 大廠房（用電量差兩個數量級）。
+   房子亮著 = 有電可用；暗掉 = 被卸載/排隊中。
+   ============================================================ */
+function makeHouse(w, h, d, mat, roofMat) {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  body.position.y = h / 2;
+  body.castShadow = body.receiveShadow = true;
+  g.add(body);
+  // 屋頂：三角柱做不了就用斜放的薄板，兩片搭成人字頂
+  [1, -1].forEach(sx => {
+    const slope = new THREE.Mesh(
+      new THREE.BoxGeometry(w * 0.62, 0.12, d + 0.18), roofMat
+    );
+    slope.position.set(sx * w * 0.26, h + w * 0.20, 0);
+    // 內側接高、外側落下；原本符號相反會變成倒 V。
+    slope.rotation.z = -sx * 0.72;
+    slope.castShadow = true;
+    g.add(slope);
+  });
+  // 窗：亮起來才看得出「有電」
+  const win = new THREE.Mesh(
+    new THREE.BoxGeometry(w * 0.34, h * 0.30, 0.05),
+    new THREE.MeshBasicMaterial({ color: 0x1a2230 })
+  );
+  win.position.set(0, h * 0.52, d / 2 + 0.03);
+  g.add(win);
+  g.userData.win = win;
+  return g;
+}
+
+const HOUSE_MAT = new THREE.MeshStandardMaterial({ color: 0x76818f, roughness: .8 });
+const ROOF_MAT  = new THREE.MeshStandardMaterial({ color: 0x47505d, roughness: .8 });
+const FACT_MAT  = new THREE.MeshStandardMaterial({ color: 0x8a6a62, roughness: .75 });
+const FROOF_MAT = new THREE.MeshStandardMaterial({ color: 0x54423e, roughness: .8 });
+
+/* 住宅區：一排小房子（普通用戶）+ 幾座大廠房（agent） */
+const houses = [];
+const factories = [];
+{
+  /* 小房子：需求是「連續成長」的，所以池子開大，
+     各幕用 showHouses(n) 控制長出幾棟 —— n 就是 2D 曲線的高度。 */
+  const HOUSE_N = 24;
+  for (let i = 0; i < HOUSE_N; i++) {
+    const col = i % 6, row = Math.floor(i / 6);
+    const h = makeHouse(1.5, 1.2, 1.4, HOUSE_MAT, ROOF_MAT);
+    h.position.set(ZONE_HOUSE - 5.5 + col * 2.35, 0, -6.8 + row * 2.8);
+    h.visible = false;
+    scene.add(h);
+    houses.push(h);
+  }
+  // 大廠房：agent。明顯比房子大 —— 同樣「一戶」，用電量差兩個數量級。
+  // 放進住宅區後排，跟小房子同一個群聚但不互相重疊。
+  const FACTORY_X0 = ZONE_HOUSE - 3.2;
+  const FACTORY_Z0 = 4.3;
+  for (let i = 0; i < 6; i++) {
+    const f = makeHouse(2.9, 2.7, 2.5, FACT_MAT, FROOF_MAT);
+    f.position.set(FACTORY_X0 + (i % 3) * 4.2, 0,
+                   FACTORY_Z0 + Math.floor(i / 3) * 3.4);
+    f.visible = false;
+    scene.add(f);
+    factories.push(f);
+  }
+}
+
+/* 第 2 幕波峰：住宅區後方只放一棟簡化摩天大樓，代表最後陡升的需求。 */
+const peakTower = new THREE.Group();
+// 放在住宅區正後方一排（跟 measureScene 的取景假設一致），不要跑到框外。
+const PEAK_TOWER_X = ZONE_HOUSE + 4.5;
+const PEAK_TOWER_Z = CONTRACT_Z - 8.0;
+const PEAK_TOWER_SCALE = 1;
+const PEAK_TOWER_FLOORS = 6;
+const PEAK_TOWER_FLOOR_H = 2.0;
+const PEAK_TOWER_FLOOR_STEP = 2.0;
+const peakTowerFloors = [];
+const peakTowerTop = new THREE.Group();
+{
+  const windowMat = new THREE.MeshBasicMaterial({ color: 0x79c0ff });
+  for (let i = 0; i < PEAK_TOWER_FLOORS; i++) {
+    const floor = new THREE.Group();
+    floor.position.y = i * PEAK_TOWER_FLOOR_STEP;
+
+    const body = new THREE.Mesh(
+      new THREE.BoxGeometry(4.6, PEAK_TOWER_FLOOR_H, 4.0), M.tower
+    );
+    body.position.y = PEAK_TOWER_FLOOR_H / 2;
+    body.castShadow = body.receiveShadow = true;
+    floor.add(body);
+
+    const band = new THREE.Mesh(new THREE.BoxGeometry(4.65, 0.12, 0.08), windowMat);
+    band.position.set(0, 1.35, 2.03);
+    floor.add(band);
+    const sideBand = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 3.95), windowMat);
+    sideBand.position.set(2.33, 1.35, 0);
+    floor.add(sideBand);
+
+    floor.visible = false;
+    peakTower.add(floor);
+    peakTowerFloors.push(floor);
+  }
+
+  const cap = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.22, 3.0), M.panel);
+  cap.position.y = 0.12;
+  peakTowerTop.add(cap);
+  const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.8, 8), windowMat);
+  antenna.position.y = 1.05;
+  peakTowerTop.add(antenna);
+}
+peakTowerTop.position.y = (PEAK_TOWER_FLOORS - 1) * PEAK_TOWER_FLOOR_STEP + PEAK_TOWER_FLOOR_H;
+peakTowerTop.visible = false;
+peakTower.add(peakTowerTop);
+// 不再放大：樓高 12 已經是小房子的十倍，也才不會衝出取景框。
+peakTower.scale.setScalar(PEAK_TOWER_SCALE);
+peakTower.position.set(PEAK_TOWER_X, 0, PEAK_TOWER_Z);
+peakTower.visible = false;
+scene.add(peakTower);
+
+function hidePeakTower() {
+  peakTower.visible = false;
+  peakTowerFloors.forEach(floor => {
+    floor.visible = false;
+    floor.scale.set(1, 1, 1);
+  });
+  peakTowerTop.visible = false;
+  peakTowerTop.scale.set(1, 1, 1);
+}
+
+/** 長出 n 棟（n 可小數，做連續成長的動畫）。這是「需求曲線」的 3D 版本。 */
+function growBuildings(list, n) {
+  list.forEach((b, i) => {
+    const l = clamp01(n - i);
+    b.visible = l > 0;
+    if (l <= 0) return;
+    const e = easeOut(l);
+    b.scale.setScalar(Math.max(.001, e));
+  });
+}
+
+/** 房子的燈：level 0→1。亮 = 有電，暗 = 被限流 */
+function lightHouses(list, level, color = 0xffd479) {
+  list.forEach((h, i) => {
+    if (!h.visible) return;
+    const on = level * list.length - i > 0;
+    h.userData.win.material.color.setHex(on ? color : 0x1a2230);
+  });
+}
+
+/* ---- 負載光點池 ---- */
+const DOT_N = 160;
+const dots3d = [];
+for (let i = 0; i < DOT_N; i++) {
+  const d = new THREE.Mesh(G.dot, dotMat.normal);
+  d.visible = false;
+  scene.add(d);
+  dots3d.push(d);
+}
+
+/* ============================================================
+   2D overlay：階梯 vs 曲線、負載波形
+   —— 這些本質是圖表，畫在 SVG 才讀得懂
+   ============================================================ */
+const ovl = document.getElementById('overlay');
+const SVGNS = 'http://www.w3.org/2000/svg';
+const svg = document.createElementNS(SVGNS, 'svg');
+svg.setAttribute('preserveAspectRatio', 'none');
+ovl.appendChild(svg);
+
+function svgEl(tag, attrs) {
+  const e = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+function clearSvg() { while (svg.firstChild) svg.removeChild(svg.firstChild); }
+
+/* overlay 用的邏輯畫布：固定 1000×620，靠 viewBox 縮放，
+   算座標時不用管實際視窗大小 */
+const OW = 1000, OH = 620;
+function sizeSvg() {
+  svg.setAttribute('viewBox', `0 0 ${OW} ${OH}`);
+  svg.setAttribute('width', innerWidth);
+  svg.setAttribute('height', innerHeight);
+}
+sizeSvg();
+
+/* 圖表區：靠右擺，左邊留給字卡 */
+const CH = { x: OW * 0.56, y: OH * 0.09, w: OW * 0.36, h: OH * 0.24 };
+
+/* 圖表底板的下緣換算成 NDC y（+1 = 畫面頂，-1 = 畫面底）。
+   有 overlay 的幕，3D 必須整個待在這條線以下，不然會被半透明底板蓋掉。
+   跟 chartFrame()/ovlPeak() 裡的底板高度綁在一起，改一個要改另一個。 */
+const PANEL_PAD_TOP = 26, PANEL_EXTRA_H = 24;
+function ndcChartBottom() {
+  const bottomSvgY = (CH.y - PANEL_PAD_TOP) + (CH.h + PANEL_EXTRA_H);
+  return 1 - 2 * (bottomSvgY / OH) - 0.03;   // 再留 0.03 的安全間隙
+}
+
+function chartFrame(g, { xLabelL, xLabelR, yLabel }) {
+  // 底板：讓圖表跟後面的 3D 分層，文字不會糊在機櫃上
+  g.appendChild(svgEl('rect', {
+    x: CH.x - 26, y: CH.y - PANEL_PAD_TOP,
+    width: CH.w + 78, height: CH.h + PANEL_EXTRA_H,
+    fill: 'rgba(13,17,23,0.72)', stroke: '#21262d', 'stroke-width': 1, rx: 5
+  }));
+  g.appendChild(svgEl('line', {
+    x1: CH.x, y1: CH.y + CH.h, x2: CH.x + CH.w, y2: CH.y + CH.h,
+    stroke: '#30363d', 'stroke-width': 1.5
+  }));
+  g.appendChild(svgEl('line', {
+    x1: CH.x, y1: CH.y, x2: CH.x, y2: CH.y + CH.h,
+    stroke: '#30363d', 'stroke-width': 1.5
+  }));
+  // 淡格線
+  for (let i = 1; i <= 4; i++) {
+    const y = CH.y + CH.h - (CH.h * i / 5);
+    g.appendChild(svgEl('line', {
+      x1: CH.x, y1: y, x2: CH.x + CH.w, y2: y,
+      stroke: '#1b232d', 'stroke-width': 1
+    }));
+  }
+  const t = (x, y, txt, fill, size = 12, anchor = 'start') => {
+    const e = svgEl('text', { x, y, fill, 'font-size': size,
+      'font-family': '"PingFang TC","Noto Sans TC",sans-serif',
+      'letter-spacing': '.06em', 'text-anchor': anchor });
+    e.textContent = txt;
+    g.appendChild(e);
+    return e;
+  };
+  if (xLabelL) t(CH.x, CH.y + CH.h + 18, xLabelL, '#6e7681', 10);
+  if (xLabelR) t(CH.x + CH.w, CH.y + CH.h + 18, xLabelR, '#6e7681', 10, 'end');
+  if (yLabel)  t(CH.x, CH.y - 11, yLabel, '#6e7681', 10);
+  return t;
+}
+
+/* 需求曲線：指數往上長（0→1 的 x 映到 0→1 的 y） */
+function demandY(u) {
+  // 前段緩、後段翹起來 —— 對得上 Codex 那條曲線的形狀
+  // 關鍵：需求要在「下一階還沒到」之前就爬過當前這一階的高度，
+  // 缺口才會出現在每一階的尾巴 —— 那就是 rate limit 發生的地方。
+  // 控制點刻意壓在每個 plateau 的上緣之上（supplyY = .25/.417/.667/1.0）。
+  const P = [
+    [0.00, 0.10], [0.20, 0.24], [0.26, 0.30],   // 第1階(.25) 尾端超過
+    [0.44, 0.40], [0.52, 0.47],                 // 第2階(.417) 尾端超過
+    [0.70, 0.64], [0.78, 0.73],                 // 第3階(.667) 尾端超過
+    [0.90, 0.92], [1.00, 1.14]                  // 第4階(1.0) 尾端也超過
+  ];
+  for (let i = 0; i < P.length - 1; i++) {
+    const [x0, y0] = P[i], [x1, y1] = P[i + 1];
+    if (u >= x0 && u <= x1) {
+      const k = (u - x0) / Math.max(1e-6, x1 - x0);
+      const s = k * k * (3 - 2 * k);            // smoothstep：接點才不會有折角
+      return y0 + (y1 - y0) * s;
+    }
+  }
+  return P[P.length - 1][1];
+}
+
+/* 供給階梯：4 階。每階在 x 軸上等寬，y 用 TIERS 佔 MAX_TIER 的比例 */
+const TIER_X = [0, 0.26, 0.52, 0.78, 1.0];   // 每階的起點（最後一個是右邊界）
+function supplyY(u) {
+  let lvl = TIERS[0];
+  for (let i = 0; i < TIERS.length; i++) {
+    if (u >= TIER_X[i]) lvl = TIERS[i];
+  }
+  return lvl / MAX_TIER;
+}
+
+/* ============================================================
+   壓力表：同步顯示「電網現在有多吃緊」。
+   數值不是寫死的 —— 直接從場上的光點算：
+     壓力 = 被堵住的量 / 總量。堵得越多，指針越右、顏色越紅。
+   所以 gauge 一定跟動畫同步（它讀的就是動畫本身）。
+   ============================================================ */
+/* gauge 擺在圖表底板「下方」，不重疊。
+   cy 由圖表底緣推出來，改 CH 也不會撞到。 */
+const GAUGE = {
+  cx: OW * 0.865,
+  cy: (CH.y - PANEL_PAD_TOP) + (CH.h + PANEL_EXTRA_H) + OH * 0.18,
+  r: OH * 0.088
+};
+
+function drawGauge(g, pressure, label) {
+  const P = clamp01(pressure);
+  const { cx, cy, r } = GAUGE;
+
+  // 底板
+  g.appendChild(svgEl('rect', {
+    x: cx - r - 26, y: cy - r - 26, width: (r + 26) * 2, height: r * 2 + 62,
+    fill: 'rgba(13,17,23,0.72)', stroke: '#21262d', 'stroke-width': 1, rx: 5
+  }));
+
+  // 半圓刻度：從 180° 掃到 0°
+  const A0 = Math.PI, A1 = 0;
+  const pt = (ang, rr) => [cx + Math.cos(ang) * rr, cy - Math.sin(ang) * rr];
+
+  // 三段色帶：綠（鬆）→ 橘（緊）→ 紅（爆）
+  const bands = [[0, .55, '#3fb950'], [.55, .82, '#d29922'], [.82, 1, '#f85149']];
+  bands.forEach(([a, b, col]) => {
+    const s0 = A0 + (A1 - A0) * a, s1 = A0 + (A1 - A0) * b;
+    const [x0, y0] = pt(s0, r), [x1, y1] = pt(s1, r);
+    g.appendChild(svgEl('path', {
+      d: `M ${x0} ${y0} A ${r} ${r} 0 0 1 ${x1} ${y1}`,
+      fill: 'none', stroke: col, 'stroke-width': 7, opacity: .32,
+      'stroke-linecap': 'butt'
+    }));
+  });
+
+  // 已達壓力的弧（實色）
+  if (P > 0.001) {
+    const sEnd = A0 + (A1 - A0) * P;
+    const [x0, y0] = pt(A0, r), [x1, y1] = pt(sEnd, r);
+    const col = P > .82 ? '#f85149' : P > .55 ? '#d29922' : '#3fb950';
+    g.appendChild(svgEl('path', {
+      d: `M ${x0} ${y0} A ${r} ${r} 0 0 1 ${x1} ${y1}`,
+      fill: 'none', stroke: col, 'stroke-width': 7, 'stroke-linecap': 'round'
+    }));
+  }
+
+  // 指針
+  const na = A0 + (A1 - A0) * P;
+  const [nx, ny] = pt(na, r * 0.78);
+  g.appendChild(svgEl('line', {
+    x1: cx, y1: cy, x2: nx, y2: ny,
+    stroke: '#e6edf3', 'stroke-width': 2.6, 'stroke-linecap': 'round'
+  }));
+  g.appendChild(svgEl('circle', { cx, cy, r: 4, fill: '#e6edf3' }));
+
+  // 兩端標籤
+  const tl = svgEl('text', { x: cx - r, y: cy + 16, fill: '#6e7681',
+    'font-size': 9, 'text-anchor': 'middle', 'font-family': '"PingFang TC",sans-serif' });
+  tl.textContent = '鬆'; g.appendChild(tl);
+  const tr = svgEl('text', { x: cx + r, y: cy + 16, fill: '#6e7681',
+    'font-size': 9, 'text-anchor': 'middle', 'font-family': '"PingFang TC",sans-serif' });
+  tr.textContent = '爆'; g.appendChild(tr);
+
+  // 標題 + 百分比
+  const tt = svgEl('text', { x: cx, y: cy - r - 10, fill: '#8b949e',
+    'font-size': 11, 'text-anchor': 'middle', 'font-family': '"PingFang TC",sans-serif' });
+  tt.textContent = '電網壓力'; g.appendChild(tt);
+
+  const col = P > .82 ? '#f85149' : P > .55 ? '#d29922' : '#3fb950';
+  const vv = svgEl('text', { x: cx, y: cy + 34, fill: col,
+    'font-size': 17, 'font-weight': 700, 'text-anchor': 'middle',
+    'font-family': '"PingFang TC",sans-serif' });
+  vv.textContent = Math.round(P * 100) + '%'; g.appendChild(vv);
+
+  if (label) {
+    const lb = svgEl('text', { x: cx, y: cy + 50, fill: '#7d8590',
+      'font-size': 10, 'text-anchor': 'middle', 'font-family': '"PingFang TC",sans-serif' });
+    lb.textContent = label; g.appendChild(lb);
+  }
+}
+
+/* 壓力的定義：需求 / 供給。
+   這是 2D 圖表畫的同一件事（曲線 vs 階梯），所以 gauge 一定跟圖同步。
+   >1 就是超出容量 → 那段就是圖上的紅色缺口。
+   各幕在 apply() 裡設定 PRESSURE，gauge 直接讀它；
+   沒設的幕退回「用場上光點推估」。 */
+let PRESSURE = null;
+
+/** 把 demand/supply 映到 0~1 的表針位置。
+    1.0 倍（剛好夠）落在 .55（綠橘交界），越超越往紅。 */
+function ratioToGauge(demand, supply) {
+  const r = supply > 0 ? demand / supply : 0;
+  if (r <= 1) return clamp01(r * 0.55);              // 還有餘裕
+  return clamp01(0.55 + Math.min(1, (r - 1) / 0.8) * 0.45);   // 超載
+}
+
+/** 沒有明確 demand/supply 的幕：用場上光點推估（被堵的比例 + 跳脫電廠）*/
+function scenePressure() {
+  if (PRESSURE !== null) return PRESSURE;
+  let total = 0, blocked = 0;
+  dots3d.forEach(d => {
+    if (!d.visible) return;
+    total++;
+    if (d.material === dotMat.drop) blocked++;
+  });
+  let up = 0, dead = 0;
+  plants.forEach(units => units.forEach(u => {
+    if (!u.visible) return;
+    up++;
+    if (u.userData.body.material === M.rackDead) dead++;
+  }));
+  const q = total ? blocked / total : 0;
+  const d = up ? dead / up : 0;
+  return clamp01(q * 0.75 + d * 0.9);
+}
+
+/** 每幕最後呼叫：把 gauge 疊到 overlay 上（沒有 overlay 的幕也有 gauge）*/
+function paintGauge(label) {
+  const g = svgEl('g', {});
+  svg.appendChild(g);
+  drawGauge(g, scenePressure(), label);
+}
+
+/* ---------- 幕1 overlay：階梯 vs 曲線 ---------- */
+function ovlSupplyDemand(t) {
+  clearSvg();
+  const g = svgEl('g', {});
+  svg.appendChild(g);
+  const tx = chartFrame(g, { xLabelL: '時間', xLabelR: '→', yLabel: '容量 / 需求' });
+
+  const X = u => CH.x + u * CH.w;
+  // 需求最高會衝到 1.14（超過最後一階），y 軸留餘裕才不會被切掉
+  const VMAX = 1.20;
+  const Y = v => CH.y + CH.h - (v / VMAX) * CH.h;
+
+  // (a) 供給階梯先畫：一階一階跳出來
+  const stepIn = seg(t, .04, .46);
+  const shown = Math.min(TIERS.length, Math.floor(stepIn * TIERS.length * 1.0001 + 1e-9));
+  const partial = clamp01(stepIn * TIERS.length - shown);
+
+  let d = `M ${X(0)} ${Y(supplyY(0))}`;
+  for (let i = 0; i < TIERS.length; i++) {
+    const on = i < shown ? 1 : (i === shown ? partial : 0);
+    if (on <= 0) break;
+    const x0 = TIER_X[i], x1 = TIER_X[i + 1];
+    const y = TIERS[i] / MAX_TIER;
+    // 垂直跳上來（那一階的「擴容」）
+    d += ` L ${X(x0)} ${Y(y)}`;
+    // 水平走完這一階（乘 on 讓它是長出來的）
+    d += ` L ${X(x0 + (x1 - x0) * on)} ${Y(y)}`;
+  }
+  g.appendChild(svgEl('path', {
+    d, fill: 'none', stroke: '#58a6ff', 'stroke-width': 3,
+    'stroke-linejoin': 'miter'
+  }));
+
+  // 每一階旁邊標交期 —— 「不是想蓋就有」
+  for (let i = 1; i < TIERS.length; i++) {
+    if (i >= shown) break;
+    const x = X(TIER_X[i]), y0 = Y(TIERS[i - 1] / MAX_TIER), y1 = Y(TIERS[i] / MAX_TIER);
+    g.appendChild(svgEl('line', {
+      x1: x + 6, y1: y0, x2: x + 6, y2: y1,
+      stroke: '#6e7681', 'stroke-width': 1, 'stroke-dasharray': '3 3'
+    }));
+    const e = svgEl('text', { x: x + 12, y: (y0 + y1) / 2 + 4, fill: '#7d8590',
+      'font-size': 11, 'font-family': '"PingFang TC",sans-serif' });
+    e.textContent = '+18 個月';
+    g.appendChild(e);
+  }
+
+  // (b) 需求曲線後畫：平滑爬上去，最後穿過階梯
+  const curveIn = seg(t, .34, .86);
+  if (curveIn > 0) {
+    const N = 90;
+    const lim = curveIn;
+    let dc = '';
+    for (let i = 0; i <= N; i++) {
+      const u = (i / N) * lim;
+      const p = `${X(u)} ${Y(demandY(u))}`;
+      dc += (i === 0 ? `M ${p}` : ` L ${p}`);
+    }
+    g.appendChild(svgEl('path', {
+      d: dc, fill: 'none', stroke: '#ffa657', 'stroke-width': 3,
+      'stroke-linecap': 'round'
+    }));
+    // 曲線頭部一顆點
+    g.appendChild(svgEl('circle', {
+      cx: X(lim), cy: Y(demandY(lim)), r: 5, fill: '#ffa657'
+    }));
+  }
+
+  // (c) 缺口：曲線高於階梯的區域塗紅
+  const gapIn = seg(t, .62, 1);
+  if (gapIn > 0) {
+    const N = 120;
+    const bands = [];
+    let cur = null;
+    for (let i = 0; i <= N; i++) {
+      const u = i / N;
+      const over = demandY(u) > supplyY(u);
+      if (over && !cur) cur = { a: u, b: u };
+      else if (over) cur.b = u;
+      else if (cur) { bands.push(cur); cur = null; }
+    }
+    if (cur) bands.push(cur);
+
+    bands.forEach(b => {
+      let dg = '';
+      const M2 = 30;
+      for (let i = 0; i <= M2; i++) {
+        const u = b.a + (b.b - b.a) * (i / M2);
+        dg += (i === 0 ? 'M ' : ' L ') + `${X(u)} ${Y(demandY(u))}`;
+      }
+      for (let i = M2; i >= 0; i--) {
+        const u = b.a + (b.b - b.a) * (i / M2);
+        dg += ` L ${X(u)} ${Y(supplyY(u))}`;
+      }
+      dg += ' Z';
+      g.appendChild(svgEl('path', {
+        d: dg, fill: 'rgba(255,123,114,.30)',
+        stroke: '#ff7b72', 'stroke-width': 1.2,
+        opacity: easeOut(gapIn)
+      }));
+    });
+
+    if (bands.length) {
+      const b = bands[bands.length - 1];
+      const um = (b.a + b.b) / 2;
+      // 標在缺口正下方，避免跟曲線頭部/圖例疊字
+      const e = svgEl('text', {
+        x: CH.x + 6, y: CH.y + CH.h - 8,
+        fill: '#ff7b72', 'font-size': 11, 'font-weight': 700,
+        'text-anchor': 'start', 'font-family': '"PingFang TC",sans-serif',
+        opacity: easeOut(seg(t, .74, 1))
+      });
+      e.textContent = '紅色缺口 = RATE LIMIT';
+      g.appendChild(e);
+    }
+  }
+
+  // 圖例
+  const lg = seg(t, .5, .9);
+  if (lg > 0) {
+    const lx = CH.x + 16, ly = CH.y + 14;
+    [['#ffa657', '需求（連續）'], ['#58a6ff', '供給（階梯 + 交期）']].forEach((it, i) => {
+      g.appendChild(svgEl('line', {
+        x1: lx, y1: ly + i * 20, x2: lx + 22, y2: ly + i * 20,
+        stroke: it[0], 'stroke-width': 3, opacity: lg
+      }));
+      const e = svgEl('text', { x: lx + 30, y: ly + i * 20 + 4, fill: '#b9c2cc',
+        'font-size': 12, 'font-family': '"PingFang TC",sans-serif', opacity: lg });
+      e.textContent = it[1];
+      g.appendChild(e);
+    });
+  }
+}
+
+/* ---------- 幕2 overlay：Codex 用戶曲線 ---------- */
+const CODEX = [
+  { m: 0.00, v: 1,  l: '1M' },
+  { m: 0.17, v: 2,  l: '2M' },
+  { m: 0.34, v: 3,  l: '3M' },
+  { m: 0.45, v: 4,  l: '4M' },
+  { m: 0.62, v: 5,  l: '5M' },
+  { m: 0.83, v: 6,  l: '6M' },
+  { m: 0.86, v: 7,  l: '' },
+  { m: 0.89, v: 8,  l: '8M' },
+  { m: 1.00, v: 15, l: '15M' }
+];
+function codexValueAt(u) {
+  const p = clamp01(u);
+  for (let i = 0; i < CODEX.length - 1; i++) {
+    const a = CODEX[i], b = CODEX[i + 1];
+    if (p >= a.m && p <= b.m) {
+      const k = (p - a.m) / Math.max(1e-6, b.m - a.m);
+      // 和右上角曲線完全相同：每個里程碑之間逐段加速。
+      return a.v + (b.v - a.v) * Math.pow(k, 1.5);
+    }
+  }
+  return CODEX[CODEX.length - 1].v;
+}
+function ovlCodex(t) {
+  clearSvg();
+  const g = svgEl('g', {});
+  svg.appendChild(g);
+  chartFrame(g, { xLabelL: '2026 年 2 月', xLabelR: '8 月', yLabel: 'Codex 活躍用戶' });
+
+  const X = u => CH.x + u * CH.w;
+  const Y = v => CH.y + CH.h - (v / 16) * CH.h;
+
+  const grow = seg(t, .04, .70);
+  // 曲線：照里程碑內插，畫到 grow 的位置
+  const lim = grow;
+  let d = '';
+  const N = 140;
+  for (let i = 0; i <= N; i++) {
+    const u = (i / N) * lim;
+    d += (i === 0 ? 'M ' : ' L ') + `${X(u)} ${Y(codexValueAt(u))}`;
+  }
+  if (lim > 0) {
+    // 面積填色
+    const fillD = d + ` L ${X(lim)} ${Y(0)} L ${X(0)} ${Y(0)} Z`;
+    g.appendChild(svgEl('path', { d: fillD, fill: 'rgba(126,231,135,.14)', stroke: 'none' }));
+    g.appendChild(svgEl('path', {
+      d, fill: 'none', stroke: '#7ee787', 'stroke-width': 3, 'stroke-linecap': 'round'
+    }));
+  }
+
+  // 里程碑點 + 標籤
+  CODEX.forEach(p => {
+    if (p.m > lim + 1e-6) return;
+    g.appendChild(svgEl('circle', { cx: X(p.m), cy: Y(p.v), r: 4.5, fill: '#7ee787' }));
+    if (!p.l) return;
+    const e = svgEl('text', {
+      x: X(p.m), y: Y(p.v) - 12, fill: '#7ee787',
+      'font-size': p.v === 15 ? 18 : 12, 'font-weight': 700,
+      'text-anchor': 'middle', 'font-family': '"PingFang TC",sans-serif'
+    });
+    e.textContent = p.l;
+    g.appendChild(e);
+  });
+
+  // 最後 31 天 +9M 的括號
+  const brk = seg(t, .62, .88);
+  if (brk > 0) {
+    const x = X(1.0) + 16;
+    const y0 = Y(6), y1 = Y(15);
+    g.appendChild(svgEl('path', {
+      d: `M ${x - 6} ${y0} L ${x} ${y0} L ${x} ${y1} L ${x - 6} ${y1}`,
+      fill: 'none', stroke: '#ffa657', 'stroke-width': 2, opacity: brk
+    }));
+    ['+9M', '31 天'].forEach((s, i) => {
+      const e = svgEl('text', {
+        x: x + 8, y: (y0 + y1) / 2 + (i ? 16 : 0), fill: '#ffa657',
+        'font-size': i ? 11 : 14, 'font-weight': 700,
+        'font-family': '"PingFang TC",sans-serif', opacity: brk
+      });
+      e.textContent = s;
+      g.appendChild(e);
+    });
+  }
+
+}
+
+/* ---------- 幕6 overlay：5h 窗口 vs 全域 reset ---------- */
+function ovlPeak(t) {
+  clearSvg();
+  const g = svgEl('g', {});
+  svg.appendChild(g);
+
+  // 底板：同 chartFrame，讓兩張波形圖跟後面的 3D 分層
+  g.appendChild(svgEl('rect', {
+    x: CH.x - 26, y: CH.y - 34,
+    width: CH.w + 78, height: CH.h + 74,
+    fill: 'rgba(13,17,23,0.72)', stroke: '#21262d', 'stroke-width': 1, rx: 5
+  }));
+
+  // 兩張並排的小圖，共用同一個 y 軸尺度 —— 峰值高低才比得出來
+  const PW = CH.w * 0.46, GAPX = CH.w * 0.08;
+  const boxes = [
+    { x: CH.x,                 title: '5h 窗口（切成小塊）', color: '#7ee787' },
+    { x: CH.x + PW + GAPX,     title: '窗口取消＋同時 reset', color: '#ff7b72' }
+  ];
+
+  const Y = v => CH.y + CH.h - v * CH.h;      // v: 0→1，1 = 容量上限
+
+  boxes.forEach((bx, bi) => {
+    const inn = seg(t, bi === 0 ? .04 : .40, bi === 0 ? .40 : .80);
+    if (inn <= 0) return;
+    const X = u => bx.x + u * PW;
+
+    // 軸
+    g.appendChild(svgEl('line', {
+      x1: bx.x, y1: CH.y + CH.h, x2: bx.x + PW, y2: CH.y + CH.h,
+      stroke: '#30363d', 'stroke-width': 1.5
+    }));
+
+    // 容量上限線（兩張圖同一條高度）
+    g.appendChild(svgEl('line', {
+      x1: bx.x, y1: Y(0.62), x2: bx.x + PW, y2: Y(0.62),
+      stroke: '#58a6ff', 'stroke-width': 1.5, 'stroke-dasharray': '6 4'
+    }));
+    if (bi === 0) {
+      const capT = svgEl('text', { x: bx.x + 4, y: Y(0.62) - 6, fill: '#58a6ff',
+        'font-size': 11, 'font-family': '"PingFang TC",sans-serif' });
+      capT.textContent = '裝置容量';
+      g.appendChild(capT);
+    }
+
+    // 負載波形
+    const N = 160;
+    let d = '';
+    let peak = 0;
+    for (let i = 0; i <= N; i++) {
+      const u = i / N;
+      let v;
+      if (bi === 0) {
+        // 5 個小峰：窗口把負載切開，每個峰都不高
+        v = 0;
+        for (let k = 0; k < 5; k++) {
+          const c = 0.1 + k * 0.2;
+          v += 0.30 * Math.exp(-Math.pow((u - c) / 0.055, 2));
+        }
+        v += 0.10;                     // 底載
+      } else {
+        // 一個大峰：全部人同一秒衝進來
+        v = 1.02 * Math.exp(-Math.pow((u - 0.20) / 0.075, 2));
+        v += 0.30 * Math.exp(-Math.pow((u - 0.62) / 0.16, 2));   // 之後的殘量
+        v += 0.08;
+      }
+      peak = Math.max(peak, v);
+      const uu = u * inn;
+      if (u / Math.max(1e-6, inn) > 1) break;
+      d += (i === 0 ? 'M ' : ' L ') + `${X(u * inn)} ${Y(v)}`;
+    }
+    // 面積
+    const lastU = inn;
+    g.appendChild(svgEl('path', {
+      d: d + ` L ${X(lastU)} ${Y(0)} L ${X(0)} ${Y(0)} Z`,
+      fill: bi === 0 ? 'rgba(126,231,135,.16)' : 'rgba(255,123,114,.20)', stroke: 'none'
+    }));
+    g.appendChild(svgEl('path', {
+      d, fill: 'none', stroke: bx.color, 'stroke-width': 2.6, 'stroke-linecap': 'round'
+    }));
+
+    // 標題
+    const tt = svgEl('text', { x: bx.x, y: CH.y - 16, fill: bx.color,
+      'font-size': 13, 'font-weight': 700, 'font-family': '"PingFang TC",sans-serif' });
+    tt.textContent = bx.title;
+    g.appendChild(tt);
+
+    // 超出容量的部分標出來（只有右圖會超）
+    if (bi === 1 && inn > .5) {
+      // 標在峰的「右側腰部」，不要壓到上面的標題列
+      const over = svgEl('text', {
+        x: X(0.34), y: Y(0.80), fill: '#ff7b72',
+        'font-size': 12, 'font-weight': 700, 'text-anchor': 'start',
+        'font-family': '"PingFang TC",sans-serif'
+      });
+      over.textContent = '超載 → 排隊';
+      g.appendChild(over);
+    }
+
+    // 總量：兩張圖的面積差不多 —— 這是重點
+    const areaIn = seg(t, .80, 1);
+    if (areaIn > 0) {
+      const e = svgEl('text', {
+        x: bx.x + PW / 2, y: CH.y + CH.h - 8, fill: '#7d8590',
+        'font-size': 12, 'text-anchor': 'middle',
+        'font-family': '"PingFang TC",sans-serif', opacity: areaIn
+      });
+      e.textContent = '總用量：一樣';
+      g.appendChild(e);
+    }
+  });
+
+  // 結論一行
+  const cl = seg(t, .86, 1);
+  if (cl > 0) {
+    const e = svgEl('text', {
+      x: CH.x + CH.w / 2, y: CH.y + CH.h + 26, fill: '#ffa657',
+      'font-size': 15, 'font-weight': 700, 'text-anchor': 'middle',
+      'font-family': '"PingFang TC",sans-serif', opacity: cl
+    });
+    e.textContent = '同樣總量，峰值翻倍 → 錯開 reset 就是削峰';
+    g.appendChild(e);
+  }
+}
+
+/* ============================================================
+   幕：apply(t)，t = 0→1。狀態一律由 t 算出來（不累加），
+   往回翻可以正確重播。
+   ============================================================ */
+const clamp01  = v => Math.max(0, Math.min(1, v));
+const seg      = (t, a, b) => clamp01((t - a) / (b - a));
+const easeOut  = t => 1 - Math.pow(1 - t, 3);
+const easeIO   = t => t < .5 ? 2*t*t : 1 - Math.pow(-2*t + 2, 2) / 2;
+const easeBack = t => { const c = 2.70158;
+                        return 1 + c * Math.pow(t-1, 3) + 1.70158 * Math.pow(t-1, 2); };
+
+let clock = 0;
+
+/** 每一幕開頭先把場景清乾淨，狀態才不會互相污染 */
+function reset() {
+  PRESSURE = null;
+  pads.forEach(p => p.visible = false);
+  stacks.forEach(g => { g.visible = false; g.scale.set(1,1,1); });
+  plants.forEach(rs => rs.forEach(r => {
+    r.visible = false;
+    r.position.set(r.position.x, r.userData.baseY, r.userData.z);
+    r.rotation.set(0, 0, 0);
+    r.scale.setScalar(1);
+    setRackMat(r, M.rack);
+    setLed(r, 0x1f6feb, false);
+  }));
+  pendingGhosts.forEach(g => g.visible = false);
+  contractPad.visible = false;
+  contractRacks.forEach(r => {
+    r.visible = false;
+    r.scale.set(1, 1, 1);
+    setRackMat(r, M.rackLock);
+    setLed(r, 0x3a2d55, false);
+  });
+  signBoard.visible = false;
+  houses.forEach(h => { h.visible = false; h.scale.setScalar(1);
+                        h.userData.win.material.color.setHex(0x1a2230); });
+  factories.forEach(f => { f.visible = false; f.scale.setScalar(1);
+                           f.userData.win.material.color.setHex(0x1a2230); });
+  energizeWires(0);
+  dots3d.forEach(d => { d.visible = false; d.material = dotMat.normal; d.scale.setScalar(1); });
+  clearSvg();
+}
+
+/** 供給 = 「有幾座電廠在發電」。n 可小數，做「一座一座蓋起來」的動畫。
+    這直接對應 2D 的階梯：第 n 階 = 第 n 座電廠上線。 */
+function raiseSupply(n, mat = M.rackLive, ledColor = 0x58a6ff) {
+  plants.forEach((units, pi) => {
+    const l = clamp01(n - pi);              // 這一座蓋到幾成
+    pads[pi].visible = l > 0;
+    /* 冷卻塔/煙囪晚一點出現。注意：scale.y 是繞 group 原點（y=0，即地面）縮的，
+       而塔的座標都是「PAD_TOP + 高度/2」，所以直接縮 y 會讓它從地面長上來 ——
+       底部始終貼在地面，不會浮起來。 */
+    stacks[pi].visible = l > 0.35;
+    if (l > 0.35) {
+      const e = easeOut((l - 0.35) / 0.65);
+      stacks[pi].scale.set(1, Math.max(.001, e), 1);
+    }
+    units.forEach((u, i) => {
+      // 一座之內三台機組依序長出來
+      const ul = clamp01(l * UNITS_PER_PLANT * 1.1 - i);
+      u.visible = ul > 0;
+      if (ul <= 0) return;
+      const e = easeOut(ul);
+      u.scale.y = Math.max(.001, e);
+      u.position.y = u.userData.baseY - (1 - e) * RH / 2;
+      setRackMat(u, mat);
+      setLed(u, ledColor, ul > .9);
+    });
+  });
+}
+
+/* ============================================================
+   六幕共用同一套物件，只有「數量」跟「狀態」在變：
+     電廠層數  = 供給（階梯式，跳一階要等交期）
+     房子/廠房 = 需求（連續成長）
+     電線亮度  = 有多少電真的送到
+     閘門      = rate limit（常駐，各幕只換開關狀態）
+   這樣每一幕看起來像同一個世界的不同時刻，而不是六張無關的圖。
+   ============================================================ */
+
+/** 把「供給 / 需求」一次套到場景上 —— 各幕都呼叫這個，畫面才一致。
+    supplyTier: 電廠疊到第幾層（對應 2D 的階梯）
+    demandN:    房子棟數（對應 2D 的曲線）
+    factoryN:   廠房座數（agent 負載）*/
+function setWorld(supplyTier, demandN, factoryN, opt = {}) {
+  pads.forEach(p => p.visible = true);
+  raiseSupply(supplyTier);
+  growBuildings(houses, demandN);
+  growBuildings(factories, factoryN);
+
+  /* 契約獨佔電廠：從第 1 幕就在場（簽了、也付了錢），但燈是暗的 —— 沒在發電。
+     訂閱制不是第 5 幕才出現的東西，它一開始就在，只是量少、也還沒被拿來填洞。
+     contractLit = 被點亮的機組比例；第 5 幕才把它點起來。 */
+  const lit = opt.contractLit || 0;
+  contractPad.visible = true;
+  contractRacks.forEach((r, i) => {
+    r.visible = true;
+    const on = lit * contractRacks.length - i > 0;
+    setRackMat(r, on ? M.rackNew : M.rackLock);
+    setLed(r, on ? 0xd2a8ff : 0x3a2d55, on);
+  });
+}
+
+/** 從電廠沿電線送電到房子：n 顆光點在線上流動。
+    over = 需求超過供給的量 → 超出的那些改成橘色堵在閘門前。 */
+/* 兩條線路（不同 z），代表不同用戶群 ——
+   速率不一樣，這是「agent 吃得比聊天兇」最直觀的表達：
+     上線 (z=-1.3)：一般聊天。顆粒小、跑得快、間距大 → 用量少
+     下線 (z=+1.3)：agent。顆粒大、跑得慢、密密排 → 用量大
+   同樣一條電網，兩種負載的節奏完全不同。 */
+const LANE = {
+  chat:  { z: -1.3, speed: 0.95, gap: 0.055, size: 0.62 },
+  agent: { z:  1.3, speed: 0.30, gap: 0.018, size: 1.25 },
+  // 訂閱戶：第 1 幕就在場，量少。速率介於兩者之間（吃到飽但有節制）
+  sub:   { z:  0.0, speed: 0.55, gap: 0.034, size: 0.88 }
+};
+
+/** 送一群負載。lane 決定速率/密度/顆粒大小。
+    n     = 這條線上有幾顆
+    over  = 其中幾顆送不過去（堵在線上）
+    base  = 用 dots3d 的哪一段（避免兩條線互搶同一顆） */
+function flowLane(lane, n, over, base, color = dotMat.normal) {
+  const L = LANE[lane];
+  for (let i = 0; i < n; i++) {
+    const d = dots3d[base + i];
+    if (!d) break;
+    d.visible = true;
+    d.scale.setScalar(L.size);
+    const blocked = i >= (n - over);
+    if (blocked) {
+      /* 被限流的 request 不再用黃色光點堆在電線前方。 */
+      d.visible = false;
+    } else {
+      d.material = color;
+      const ph = ((clock * L.speed) + i * L.gap) % 1;
+      d.position.set(
+        ZONE_PLANT + (ZONE_HOUSE - ZONE_PLANT) * ph,
+        PYLON_H - 0.34 - Math.sin(ph * Math.PI * 4) * 0.28,
+        L.z
+      );
+    }
+  }
+  return base + n;
+}
+
+/** 兩條線一起送。agentShare = agent 佔比（0~1）。
+    聊天流量多但每顆小、agent 顆數少但每顆大又慢 —— 視覺上就分得出來。 */
+function flowLoad(n, over = 0, agentShare = 0.45, color = dotMat.normal, subShare = 0.18) {
+  const nAgent = Math.round(n * agentShare);
+  const nSub   = Math.round(n * subShare);
+  const nChat  = Math.max(0, n - nAgent - nSub);
+  // 堵住的優先算在 agent 那條（它才是壓垮電網的那群）
+  const oAgent = Math.min(nAgent, over);
+  const oChat  = Math.min(nChat, over - oAgent);
+  let base = 0;
+  base = flowLane('chat',  nChat,  oChat,  base, color);
+  base = flowLane('agent', nAgent, oAgent, base, color);
+  // 訂閱戶用固定的紫色，跟契約電廠呼應 —— 一眼看出是同一群人
+  base = flowLane('sub',   nSub,   0,      base, dotMat.sub);
+}
+
+/* ---------- 第 1 幕：算力就是發電廠 ----------
+   電廠一階一階長高（階梯），房子一棟一棟長出來（連續）。
+   最後一階電廠還是線框 = 簽了但還在交期裡。
+   ------------------------------------------------------------ */
+function s1(t) {
+  reset();
+  hidePeakTower();
+  ovlSupplyDemand(t);
+
+  /* 供給：跟 2D 階梯完全同步。
+     ovlSupplyDemand() 用 seg(t,.04,.46) 一階一階畫，這裡用同一個窗，
+     並且用「已經畫出幾階」當座數 —— 圖上跳一階，場上就蓋一座。 */
+  const stepIn = seg(t, .04, .46);
+  const tier = Math.min(TIERS.length, stepIn * TIERS.length);
+  // 需求：同時間連續長房子 —— 兩者速度不同，縫就出來了
+  const dem = seg(t, .06, .92);
+  setWorld(tier, dem * 14, dem * 2);
+
+  // 第 4 階：線框 = 已經簽了但還在交期裡的容量
+  const ghost = seg(t, .56, .92);
+  pendingGhosts.forEach((g, i) => {
+    const l = clamp01(ghost * pendingGhosts.length * 1.2 - i);
+    g.visible = l > 0;
+    g.scale.setScalar(Math.max(.001, easeOut(l)));
+  });
+  M.wireDim.opacity = .22 + Math.abs(Math.sin(clock * 2)) * .2;
+
+  /* 壓力：直接讀 2D 圖上「曲線頭部」那一點的 需求/供給。
+     ovlSupplyDemand() 的曲線畫到 u = seg(t,.34,.86)，
+     所以這裡用同一個 u、同一組 demandY()/supplyY() ——
+     圖上進到紅色缺口，表針就一定同時衝過 1.0，不可能不同步。 */
+  const u = seg(t, .34, .86);
+  const dNow = demandY(u), sNow = supplyY(u);
+  PRESSURE = ratioToGauge(dNow, sNow);
+
+  /* 電線/房子跟著壓力走：超過容量就有一部分送不到（橘色堵在線上）。
+     over 由「超出的比例」算出來 —— 跟 gauge 同一個來源。 */
+  const live = seg(t, .18, .6);
+  const overRatio = Math.max(0, dNow / Math.max(0.001, sNow) - 1);
+  const n = Math.floor(live * 40);
+  const over = Math.min(n, Math.round(n * Math.min(1, overRatio * 2.2)));
+  energizeWires(Math.min(1, live * 0.8 + overRatio), overRatio > 0.02 ? 0xffa657 : 0x58a6ff);
+  flowLoad(n, over);
+  lightHouses(houses, live);
+  lightHouses(factories, live);
+}
+
+/* ---------- 第 2 幕：用戶爆炸，而且不是一般用戶 ----------
+   同一個世界：電廠沒長（還在同一階），但房子暴增、而且冒出大廠房。
+   ------------------------------------------------------------ */
+function s2(t) {
+  reset();
+  hidePeakTower();
+  ovlCodex(t);
+
+  /* 供給不變（還在第 3 座）—— 這一幕的主角是需求「爆炸」。
+     房子跟右上角 Codex 曲線共用同一個 grow 與里程碑值，
+     所以住宅增加的速率、轉折與最後陡升會同步。 */
+  const grow = seg(t, .04, .70);
+  const users = codexValueAt(grow);
+  const dem = clamp01((users - 1) / 14);
+  const fac = easeOut(seg(t, .26, .74));        // 廠房緊接著冒出來
+  setWorld(TIERS[2], 4 + dem * (houses.length - 4), fac * factories.length);
+  // 最後陡升時一層一層蓋起來，讓樓高和波峰尾段同步。
+  const towerLevel = easeOut(seg(t, .57, .70));
+  peakTower.visible = towerLevel > 0;
+  peakTowerFloors.forEach((floor, i) => {
+    const floorLevel = clamp01(towerLevel * PEAK_TOWER_FLOORS - i);
+    floor.visible = floorLevel > 0;
+    floor.scale.set(1, Math.max(.001, easeOut(floorLevel)), 1);
+  });
+  const topLevel = clamp01((towerLevel - .90) / .10);
+  peakTowerTop.visible = topLevel > 0;
+  peakTowerTop.scale.set(1, Math.max(.001, easeOut(topLevel)), 1);
+
+  // 電線越來越吃緊：亮度衝高，但供給沒變
+  const load = Math.min(1, 0.3 + dem * 0.9);
+  energizeWires(load, load > .85 ? 0xffa657 : 0x58a6ff);
+
+  // 負載光點：房子少少的，廠房一開就爆量
+  const n = Math.floor(20 + dem * 40 + fac * 60);
+  // agent 佔比隨廠房出現往上跑：從 15% 爬到 65%
+  flowLoad(n, Math.floor(fac * 26), 0.15 + fac * 0.50);
+
+  const instability = seg(t, .55, 1);
+  const lightsOn = instability > 0 && Math.sin(clock * 3.6) <= 0.05 ? 0 : 1;
+  lightHouses(houses, lightsOn);
+  lightHouses(factories, Math.min(1, fac * 1.4) * lightsOn, 0xffa657);
+
+  /* 壓力：跟 2D 的 Codex 曲線同步。
+     供給停在 3 座不動（這一幕沒有擴容），需求照曲線從 1M 爬到 15M。
+     校準：終點 15M 不停在安全邊界，而是在黃區高位來回、偶爾逼近紅區——
+     系統已經不穩定但還沒崩。真正的崩留給第 3 幕演。
+     ratioToGauge 在 r<=1 時是 r*0.55，所以只要讓 r 從 ~0.12 走到 1.0。 */
+  const wobble = instability * (0.24 + Math.sin(clock * 3.6) * 0.06);
+  PRESSURE = clamp01(ratioToGauge(users, 15) + wobble);
+}
+
+/* ---------- 第 3 幕：不限流，整張電網會崩 ----------
+   需求灌爆 → 電線紅到爆 → 電廠一座座跳脫 → 房子整區暗掉
+   → 倒回來：低頻卸載，切掉一部分，其他保住
+   ------------------------------------------------------------ */
+function s3(t) {
+  reset();
+  setWorld(TIERS[2], houses.length, factories.length);
+
+  /* 這一幕回答的是：需求都爆成那樣了，為什麼沒有真的爆掉？
+     結構是 A/B 對照：
+       前半 = 假設沒有限流 → 真的會連鎖跳脫（這段是「假設」，不是史實）
+       後半 = 實際上有限流 → 電網撐住了，代價是你會排到隊
+     所以第 4 幕的三招不是憑空冒出來的，是這裡已經看到它在生效。 */
+
+  const SPLIT = 0.52;          // 前半假設 / 後半現實 的分界
+
+  if (t < SPLIT) {
+    /* ── A：假設沒有限流 ── */
+    const u = t / SPLIT;
+
+    // 負載無節制往上灌（不限流 = 沒人擋）
+    const flood = clamp01(u / 0.55);
+    energizeWires(Math.min(1, flood * 1.4), flood > .6 ? 0xff7b72 : 0x58a6ff);
+    flowLoad(Math.floor(flood * 130), 0, 0.55);      // over=0：沒有限流就沒人排隊
+    lightHouses(houses, 1);
+    lightHouses(factories, 1);
+
+    // 過載：燈條轉紅
+    if (u > 0.35) {
+      plants.forEach(rs => rs.forEach(r => {
+        if (r.visible) setLed(r, 0xff7b72, Math.sin(clock * 12) > 0);
+      }));
+      energizeWires(1, 0xff7b72);
+    }
+
+    // 連鎖跳脫：一座一座熄掉，房子跟著整區暗
+    const trip = clamp01((u - 0.55) / 0.45);
+    if (trip > 0) {
+      const order = [1, 2, 0, 3];
+      order.forEach((pi, k) => {
+        if (clamp01(trip * order.length * 1.1 - k) <= 0) return;
+        plants[pi].forEach(r => {
+          if (!r.visible) return;
+          setRackMat(r, M.rackDead);
+          setLed(r, 0x000000, false);
+        });
+      });
+      const dark = 1 - trip;
+      energizeWires(dark * 0.5, 0xff7b72);
+      lightHouses(houses, dark);
+      lightHouses(factories, dark);
+      // 光點掉下來 —— 請求真的失敗了
+      for (let i = 0; i < 130; i++) {
+        const d = dots3d[i];
+        if (!d || !d.visible) continue;
+        d.material = dotMat.drop;
+        d.position.y = Math.max(0.2, d.position.y - trip * 7);
+        d.scale.setScalar(Math.max(.25, 1 - trip));
+      }
+    }
+
+    // 壓力：一路衝到頂
+    /* 假設段的表針：需求爬升 + 供給隨跳脫掉光 → 一路衝到 100%。
+       trip=1 時只剩 0.35 座在發電，比值 >2 → 表針到頂。 */
+    PRESSURE = ratioToGauge(4 * (1.0 + flood * 0.45), Math.max(0.35, 4 * (1 - trip * 0.94)));
+
+  } else {
+    /* ── B：實際上有限流 ── */
+    const u = (t - SPLIT) / (1 - SPLIT);
+
+    // 四座電廠全部好好在跑 —— 沒有跳脫，這才是現實
+    plants.forEach(rs => rs.forEach(r => {
+      if (!r.visible) return;
+      setRackMat(r, M.rackLive);
+      setLed(r, 0x58a6ff, true);
+    }));
+
+    /* 一樣的需求灌進來，但超出容量的那部分被擋在電線上排隊。
+       擋掉的比例隨時間穩定下來 —— 這就是限流在工作。 */
+    const capped = easeOut(clamp01(u / 0.6));
+    const n = 130;
+    const over = Math.round(n * (0.30 + capped * 0.10));
+    energizeWires(0.78, 0x58a6ff);
+    flowLoad(n, over, 0.5);
+
+    // 房子大部分有電；被限流的那些暗著等，但沒有壞掉
+    lightHouses(houses, 0.78);
+    lightHouses(factories, 0.6);
+
+    // 壓力：撐在「緊但沒破」的位置 —— 限流把它壓在 100% 以下
+    PRESSURE = ratioToGauge(1.0 + 0.28 - capped * 0.30, 1);
+  }
+}
+
+/* ---------- 第 4 幕：三招調度（主菜）----------
+   同一個世界，同樣的需求，只是電網的處理方式變聰明了。
+   ① 排隊 ② 路由（含降規） ③ 調度（離峰）
+   ------------------------------------------------------------ */
+const ROUTE_X = -14.5;
+function s4(t) {
+  reset();
+  setWorld(TIERS[2], houses.length, factories.length);
+  energizeWires(0.8);
+  lightHouses(houses, 1);
+  lightHouses(factories, 1);
+
+  /* 調度前先承受 7× 尖峰，三招介入後慢慢壓回 1×。
+     這個倍率同時控制壓力表與粒子速度，讓「降下來」不只是一句旁白。 */
+  const rQueue = seg(t, .02, .36);
+  const rRoute = seg(t, .30, .68);
+  const rSched = seg(t, .62, 1);
+  const relief = clamp01(rQueue * 0.30 + rRoute * 0.34 + rSched * 0.30);
+  const speedX = 7 - 6 * easeOut(relief);
+
+  /* ① 排隊：光點在閘門前排隊，一顆一顆放行 */
+  const q = rQueue;
+  const QN = 46;
+  for (let i = 0; i < QN; i++) {
+    const d = dots3d[i];
+    d.visible = q > 0;
+    if (q <= 0) continue;
+    const released = clamp01(q * 1.25 - (i / QN) * 0.55);
+    if (released < 0.02) {
+      // 還在排：不再顯示黃色排隊光點
+      d.visible = false;
+    } else {
+      // 放行：沿電線往住宅區走
+      const ph = Math.min(1, released);
+      d.material = ph > .95 ? dotMat.ok : dotMat.normal;
+      d.position.set(
+        -7.0 + (ZONE_HOUSE + 7.0) * ph,
+        PYLON_H - 0.34,
+        (i % 2 ? 1 : -1) * 1.3
+      );
+    }
+  }
+
+  /* ② 路由：一部分走旁路／降規供電，不再額外堆一座示意小電廠 */
+  const rt = rRoute;
+  if (rt > 0) {
+    const sp = seg(t, .44, .68);
+
+    for (let i = QN; i < QN + 50; i++) {
+      const d = dots3d[i];
+      if (!d) break;
+      const k = i - QN;
+      if (clamp01(rt * 1.3 - k / 50 * 0.5) <= 0) { d.visible = false; continue; }
+      d.visible = true;
+      const reduced = k % 3 === 0 && sp > .3;
+      // 綠色降規流量比藍色主路徑更慢；整體再從 7× 一起降到 1×。
+      const ph = ((clock * .62 * speedX * (reduced ? .42 : 1)) + k * 0.028) % 1;
+      if (reduced) {
+        // 降規：走旁路，顆粒變小
+        d.material = dotMat.ok;
+        d.scale.setScalar(.7);
+        d.position.set(ROUTE_X + (ZONE_HOUSE - ROUTE_X) * ph,
+                       1.0 + Math.sin(ph * Math.PI) * 2.2, 2.6);
+      } else {
+        d.material = dotMat.normal;
+        d.scale.setScalar(1);
+        d.position.set(ZONE_PLANT + (ZONE_HOUSE - ZONE_PLANT) * ph,
+                       PYLON_H - 0.34, -2.6);
+      }
+    }
+  }
+
+  /* ③ 調度：離峰批次 —— 不急的工作挪到後場慢慢跑 */
+  const sch = rSched;
+  if (sch > 0) {
+    // 後台不只排隊：效率拉高後，把下一座電廠的擴建也排進來。
+    const expansion = easeOut(seg(t, .74, 1));
+    raiseSupply(TIERS[2] + expansion * 0.58, M.rackLive, 0x7ee787);
+    plants.forEach((rs, pi) => rs.forEach((r, li) => {
+      if (!r.visible) return;
+      setLed(r, Math.sin(clock * 1.6 + pi * 2.1 + li * .3) > 0 ? 0x7ee787 : 0x58a6ff, true);
+    }));
+    energizeWires(0.7, 0x7ee787);
+  }
+
+  /* 壓力：同樣的需求，但三招一招一招上，壓力一段一段被壓下來。
+     這一幕的重點就是「表針往左走」—— 調度真的有效。 */
+  PRESSURE = ratioToGauge(1 + (speedX - 1) * 0.22, 1);
+}
+
+/* ---------- 第 5 幕：合理的陰謀論 ----------
+   同一個世界，多了一座「鎖起來的電廠」（契約獨佔），
+   訂閱戶的電被導進去把它填滿。
+   ------------------------------------------------------------ */
+function s5(t) {
+  reset();
+
+  /* 這一幕不是「訂閱戶進場」—— 他們從第 1 幕就在跑了（那條紫色的線）。
+     這一幕揭露的是：那座一直暗著的契約電廠，是被拿來做什麼的。
+     所以契約電廠不用再「浮現」，它本來就在畫面裡，只是現在燈亮了。 */
+  const lit = easeIO(seg(t, .30, .78));
+  setWorld(TIERS[2], houses.length, factories.length, { contractLit: lit });
+  energizeWires(0.75);
+  lightHouses(houses, 1);
+  lightHouses(factories, 1);
+  M.rackNew.emissiveIntensity = .5 + Math.abs(Math.sin(clock * 2.4)) * .4;
+
+  /* 主電網照常跑：企業、PAYG、還有那條一直都在的訂閱戶紫線。
+     訂閱戶佔比在這一幕拉高 —— 量變多了，才需要拿契約算力去接。 */
+  const subShare = 0.18 + seg(t, .10, .78) * 0.34;
+  flowLoad(96, 0, 0.34, dotMat.normal, subShare);
+
+  /* 訂閱戶的一部分被「導去」契約電廠：紫色光點從住宅區折回電廠側。
+     這是全片唯一一條逆向流動 —— 因為它講的是分配，不是送電。 */
+  const divert = seg(t, .34, .88);
+  if (divert > 0) {
+    for (let i = 100; i < 100 + 40; i++) {
+      const d = dots3d[i];
+      if (!d) break;
+      const k = i - 100;
+      if (clamp01(divert * 1.35 - k / 40 * .55) <= 0) { d.visible = false; continue; }
+      d.visible = true;
+      d.material = dotMat.sub;
+      d.scale.setScalar(0.88);
+      const ph = ((clock * .42) + k * 0.026) % 1;
+      // 從主電網彎向契約電廠（z 從 0 拉到 CONTRACT_Z）
+      d.position.set(
+        ZONE_HOUSE + (CONTRACT_X - ZONE_HOUSE) * ph,
+        PYLON_H - 0.34 - Math.sin(ph * Math.PI) * 1.6,
+        CONTRACT_Z * easeIO(ph)
+      );
+    }
+  }
+
+  // 牌子：保證供電量永遠是「—」
+  const sg = seg(t, .70, 1);
+  signBoard.visible = sg > 0;
+  if (sg > 0) signBoard.scale.set(1, Math.max(.001, easeBack(sg)), 1);
+
+  /* 壓力：契約電廠點亮多少，就等於多了多少供給 → 表針往左走。
+     這正是那個論點：閒置算力不用也是浪費，拿來填對雙方都好看。 */
+  PRESSURE = ratioToGauge(1.25, 1 + lit * 0.45);
+}
+
+/* ---------- 第 6 幕：為什麼 8/20 之後特別有感 ----------
+   同一個世界、同樣的房子數。差別只在「大家什麼時候用」。
+   ------------------------------------------------------------ */
+function s6(t) {
+  reset();
+  ovlPeak(t);
+  setWorld(TIERS[2], houses.length, factories.length);
+
+  // (a) 5h 窗口：分批用電，每次只有一部分房子亮 → 峰值低
+  if (t < .46) {
+    const burst = Math.floor((clock * .55) % 3);
+    energizeWires(0.55, 0x7ee787);
+    houses.forEach((h, i) => {
+      h.userData.win.material.color.setHex(i % 3 === burst ? 0xffd479 : 0x1a2230);
+    });
+    factories.forEach((f, i) => {
+      f.userData.win.material.color.setHex(i % 3 === burst ? 0xffd479 : 0x1a2230);
+    });
+    plants.forEach(rs => rs.forEach(r => { if (r.visible) setLed(r, 0x7ee787, true); }));
+    flowLoad(38, 0, 0.45, dotMat.ok);
+  }
+
+  // (b) 窗口取消 + 同時 reset：全部人同一秒開燈 → 峰值翻倍
+  const b = seg(t, .46, .88);
+  if (b > 0 && t < .88) {
+    const surge = easeOut(Math.min(1, b * 1.6));
+    energizeWires(1, 0xff7b72);
+    lightHouses(houses, 1);
+    lightHouses(factories, 1, 0xffa657);
+    plants.forEach(rs => rs.forEach(r => {
+      if (r.visible) setLed(r, 0xffa657, Math.sin(clock * 8) > -0.3);
+    }));
+    // 所有光點同一個相位 → 同一秒到達，而且超量的堵在閘門前
+    const n = Math.floor(60 + surge * 80);
+    flowLoad(n, Math.floor(surge * 54), 0.5);
+  }
+
+  // (c) 錯開 reset：同樣的量，分散相位 → 峰消了
+  const c = seg(t, .88, 1);
+  if (c > 0) {
+    energizeWires(0.7, 0x7ee787);
+    lightHouses(houses, 1);
+    lightHouses(factories, 1);
+    plants.forEach(rs => rs.forEach(r => { if (r.visible) setLed(r, 0x7ee787, true); }));
+    flowLoad(120, 0, 0.45, dotMat.ok);
+  }
+
+  /* 壓力：這一幕的主角就是表針。
+     5h 窗口分批 → 低；窗口取消+同時 reset → 衝頂；錯開 → 掉回來。
+     總用量三段都一樣，差別只在「同時性」。 */
+  if (t < .46) {
+    PRESSURE = ratioToGauge(0.62, 1);                        // 分批：平
+  } else if (t < .88) {
+    const surge = easeOut(Math.min(1, seg(t, .46, .88) * 1.6));
+    PRESSURE = ratioToGauge(0.62 + surge * 1.05, 1);         // 同時：峰值翻倍
+  } else {
+    PRESSURE = ratioToGauge(0.66, 1);                        // 錯開：削峰
+  }
+}
+
+
+/* ============================================================
+   鏡頭：距離由幾何算出來，不用猜
+   ============================================================ */
+function fitDist(h, margin = 1.45, w = 0) {
+  const vHalf = (camera.fov * Math.PI / 180) / 2;
+  let need = (h * margin / 2) / Math.tan(vHalf);
+  const aspectPenalty = camera.aspect < 1.2 ? (1.2 / camera.aspect) : 1;
+  need *= aspectPenalty;
+  if (w > 0) {
+    const hHalf = Math.atan(Math.tan(vHalf) * camera.aspect);
+    need = Math.max(need, (w * margin / 2) / Math.tan(hHalf));
+  }
+  return need;
+}
+
+/* 有 overlay 的幕：3D 要讓到左半邊，不然會跟右邊的圖打架
+   —— 用 xOff 把 lookAt 目標往左推 */
+const SCENES = [
+  // 幕1：有 overlay。3D 只是背景的機櫃群，退遠一點、擺左邊
+  { apply: s1, h: () => PAD_TOP + SUPPLY_H + 2,
+    w: () => 40, a: 2.40, dur: 5600, ovl: true },
+  // 幕2：有 overlay。要裝下電弧爐那一排（往右延伸到 x≈13）
+  { apply: s2, h: () => PAD_TOP + SUPPLY_H + 3,
+    w: () => 40, a: 2.40, dur: 6400, ovl: true },
+  // 幕3：純 3D。三座機組 + 閘門，鏡頭要看得到地面那一段
+  { apply: s3, h: () => PAD_TOP + SUPPLY_H + 4,
+    w: () => 40, a: 2.40, dur: 7200 },
+  // 幕4：純 3D，主菜。要同時裝下旁路(-14.5) 到右機組(+7.2)跟後場隊列
+  { apply: s4, h: () => PAD_TOP + SUPPLY_H + 5,
+    w: () => 40, a: 2.40, dur: 8600 },
+  // 幕5：純 3D。要裝到契約機組(+14.5) 跟牌子
+  { apply: s5, h: () => PAD_TOP + SUPPLY_H + 4,
+    w: () => 40, a: 2.40, dur: 7600 },
+  // 幕6：有 overlay。角度跟幕3 接近，讓「平峰 vs 尖峰」是同一視角的對比
+  { apply: s6, h: () => PAD_TOP + SUPPLY_H + 5,
+    w: () => 40, a: 2.40, dur: 7600, ovl: true }
+];
+
+/* ============================================================
+   播放控制
+   ============================================================ */
+/* 每幕 gauge 底下的一行說明 —— 講「壓力現在是什麼意思」 */
+const GAUGE_LABEL = [
+  '需求追著供給跑',
+  'agent 進場，壓力高位震盪',
+  '假設不限流 → 崩；有限流 → 撐住',
+  '調度後，7× 尖峰被攤平',
+  '閒著的契約算力被拿來填',
+  '同時 reset → 峰值翻倍'
+];
+
+let current = 0, progress = 0, auto = false, orbit = false, finished = false, hold = 0;
+
+const cardEls = [...document.querySelectorAll('.card')];
+const dotsEl  = document.getElementById('dots');
+const outroEl = document.getElementById('outro');
+const autoLbl = document.getElementById('autoLabel');
+const orbitLbl = document.getElementById('orbitLabel');
+const keymapEl = document.getElementById('keymap');
+
+SCENES.forEach(() => dotsEl.appendChild(document.createElement('i')));
+const dotEls = [...dotsEl.children];
+
+const camT = { r: 30, y: 10, a: -0.6, look: 6, x: 0, z: 0 };
+const camC = { ...camT };
+
+/* 量出這一幕「實際會畫出來的東西」的世界包圍盒。
+   幕的內容隨 t 變，所以取幾個時間點的聯集，鏡頭才不會播到一半爆框。
+   注意：這會呼叫 apply()，所以量完要把畫面還原。 */
+function measureScene(i) {
+  const sc = SCENES[i];
+  const box = new THREE.Box3();
+  // 摩天大樓現在就站在住宅區後方、scale = 1，取景直接量它的真實位置。
+  const peakTowerScale = peakTower.scale.clone();
+  const peakTowerPosition = peakTower.position.clone();
+  [0.35, 0.7, 1.0].forEach(t => {
+    sc.apply(t);
+    scene.updateMatrixWorld(true);
+    scene.traverse(o => {
+      if (!o.isMesh && !o.isLine) return;
+      if (o === ground || o === grid) return;
+      let p = o, vis = true;
+      while (p) { if (p.visible === false) { vis = false; break; } p = p.parent; }
+      if (!vis) return;
+      const bb = new THREE.Box3().setFromObject(o);
+      if (!isFinite(bb.min.x)) return;
+      box.union(bb);
+    });
+    peakTower.scale.copy(peakTowerScale);
+    peakTower.position.copy(peakTowerPosition);
+  });
+  peakTower.scale.copy(peakTowerScale);
+  peakTower.position.copy(peakTowerPosition);
+  return box.isEmpty() ? null : box;
+}
+
+/* 字卡佔左邊 34vw，所以 3D 的可用區是畫面右側那一塊。
+   把 subject 往右擺 = 讓 lookAt 目標往「螢幕左方向」偏，
+   而螢幕左方向要用相機的 right 向量算，不能直接減 x
+   （相機是繞著 y 軸轉的，a 一變，世界 x 就不是螢幕 x 了）。*/
+const CARD_FRAC = 0.34;        // 字卡寬度佔比
+const SAFE = 0.06;             // 邊緣留白
+
+/* 六幕共用一個框：取所有幕的聯集算一次就好。
+   這樣換幕時鏡頭完全不動 —— 使用者要的「統一 viewport」。 */
+let UNION_BOX = null;
+function unionBox() {
+  if (UNION_BOX) return UNION_BOX;
+  const b = new THREE.Box3();
+  for (let k = 0; k < SCENES.length; k++) {
+    const bb = measureScene(k);
+    if (bb) b.union(bb);
+  }
+  UNION_BOX = b.isEmpty() ? null : b;
+  return UNION_BOX;
+}
+
+function applyCam(i) {
+  const sc = SCENES[i];
+  const box = unionBox();
+  if (!box) { camT.r = 40; camT.y = 14; camT.look = 8; camT.a = sc.a; camT.x = 0; camT.z = 0; return; }
+
+  const size = new THREE.Vector3(); box.getSize(size);
+  const ctr  = new THREE.Vector3(); box.getCenter(ctr);
+
+  camT.a = sc.a;
+
+  const ovlMode = !!sc.ovl;
+
+  /* 鏡頭一律「對準 subject 正中央」，不做偏軸位移。
+     偏軸會讓投影寬度隨位移變大，跟距離互相牽動 —— 解不開，也沒必要解。
+     字卡是半透明的，包圍盒角落被壓到不影響閱讀；真正要避免的是 clipped。 */
+  const ca = Math.abs(Math.cos(sc.a)), sa = Math.abs(Math.sin(sc.a));
+  const projW = size.x * ca + size.z * sa;   // 繞 y 軸轉後的水平投影寬
+  const projH = size.y;
+
+  // 有 overlay 的幕留多一點餘裕：圖表在上方，3D 不要頂上去
+  // 幕5 有牌子跟契約機組，垂直吃比較多，餘裕再放寬一點
+  /* 有 overlay 的幕：圖表佔上半，3D 只能用下半那條帶子。
+     所以要「同時」縮小 + 下沉：
+       ① 垂直可用高度只剩一半 → margin 加倍，主體才塞得進那條帶
+       ② lookAt 抬高 → 主體在畫面上往下移
+     只做 ② 會把下緣切掉（試過了）。 */
+  const vHalfA = (camera.fov * Math.PI / 180) / 2;
+  /* 有 overlay 的幕：圖表底板會「蓋住」後面的 3D（底板是半透明深色）。
+     所以真正的約束不是「有沒有出畫面」，而是「有沒有被底板壓到」。
+     OVL_TOP = 底板下緣的 NDC y；3D 的頂端必須低於它。 */
+  /* 六幕用同一種框法（使用者選定「第 4 幕」那個視角最清楚）。
+     2D 小卡蓋到 3D 一點點是可接受的 —— 一致性比零重疊重要。 */
+  const margin = 1.16;
+  camT.r = fitDist(projH, margin, projW);
+  const dropNdc = 0.16;       // 略微下沉，讓右上角讓給 2D 小卡
+  camT.look = ctr.y + Math.tan(vHalfA) * camT.r * dropNdc;
+  camT.y = camT.look + projH * 0.20 + 2.5;
+  /* 把主體往畫面右邊推，空出左邊給字卡。
+     位移方向要用相機的 right 向量（相機繞 y 軸轉，世界 x ≠ 螢幕 x）。
+     固定量、算一次，不迭代 —— 迭代會跟距離互相牽動。 */
+  const PUSH_WORLD = 11;        // 固定世界距離（不隨 r 變，才不會跟距離互相牽動）
+  const shiftX = -Math.sin(sc.a) * PUSH_WORLD;
+  const shiftZ =  Math.cos(sc.a) * PUSH_WORLD;
+  camT.x = ctr.x + shiftX;
+  camT.z = ctr.z + shiftZ;
+
+  /* fitDist 算的是「沒俯角」的距離，但 camT.y 之後又把相機抬高俯視，
+     投影高度會再變大 —— 所以量出來常常差一點就出框。
+     這裡只微調「距離」把它收進來：位置不動，所以不會像偏軸那樣正反饋。
+     目標：整個 subject 落在 |NDC| <= 0.97。 */
+  {
+    const probeCam = new THREE.PerspectiveCamera(camera.fov, camera.aspect, 0.1, 400);
+    const corners = [];
+    for (let k = 0; k < 8; k++) {
+      corners.push(new THREE.Vector3(
+        k & 1 ? box.max.x : box.min.x,
+        k & 2 ? box.max.y : box.min.y,
+        k & 4 ? box.max.z : box.min.z
+      ));
+    }
+    const worst = r => {
+      const look = ctr.y + Math.tan(vHalfA) * r * dropNdc;
+      const lx = ctr.x + shiftX, lz = ctr.z + shiftZ;
+      probeCam.position.set(lx + Math.cos(sc.a) * r,
+                            look + projH * 0.20 + 2.5,
+                            lz + Math.sin(sc.a) * r);
+      probeCam.lookAt(lx, look, lz);
+      probeCam.updateMatrixWorld(true);
+      probeCam.updateProjectionMatrix();
+      let m = 0;
+      corners.forEach(c => {
+        const v = c.clone().project(probeCam);
+        m = Math.max(m, Math.abs(v.x), Math.abs(v.y));
+      });
+      return m;
+    };
+    // 距離越遠 → worst 越小，單調，所以直接二分
+    let lo = camT.r, hi = camT.r;
+    if (worst(hi) > 0.99) {
+      for (let k = 0; k < 12 && worst(hi) > 0.99; k++) hi *= 1.22;
+      for (let k = 0; k < 26; k++) {
+        const mid = (lo + hi) / 2;
+        if (worst(mid) > 0.99) lo = mid; else hi = mid;
+      }
+      camT.r = hi;
+      camT.look = ctr.y + Math.tan(vHalfA) * camT.r * dropNdc;
+      camT.y = camT.look + projH * 0.20 + 2.5;
+    }
+  }
+
+  // 還原：measureScene 跑過 apply(t)，畫面狀態要回到目前進度
+  sc.apply(progress);
+}
+
+function syncUI() {
+  cardEls.forEach((el, i) => el.classList.toggle('on', i === current && !finished));
+  dotEls.forEach((el, i)  => el.classList.toggle('on', i === current && !finished));
+  outroEl.classList.toggle('on', finished);
+  ovl.style.opacity = finished ? 0 : 1;
+  keymapEl.style.opacity = finished ? 0 : 1;
+  if (!finished) applyCam(current);
+}
+
+function goto(i, instant = false) {
+  if (i < 0) return;
+  if (i >= SCENES.length) { finished = true; clearSvg(); syncUI(); return; }
+  finished = false;
+  current = i;
+  progress = instant ? 1 : 0;
+  hold = 0;
+  syncUI();
+}
+
+function next() {
+  if (finished) return;
+  if (progress < 0.999) progress = 1;      // 先快轉到定格
+  else goto(current + 1);                   // 已定格才換幕
+}
+function prev() {
+  if (finished) { finished = false; current = SCENES.length - 1; progress = 1; syncUI(); return; }
+  if (current > 0) goto(current - 1, true);
+  else progress = 0;
+}
+function setAuto(v) { auto = v; autoLbl.classList.toggle('auto', auto); }
+function setOrbit(v) {
+  orbit = v;
+  orbitLbl.classList.toggle('auto', orbit);
+}
+
+addEventListener('keydown', e => {
+  if (e.code === 'Space' || e.code === 'ArrowRight' || e.code === 'PageDown') {
+    e.preventDefault(); setAuto(false); next();
+  } else if (e.code === 'ArrowLeft' || e.code === 'PageUp') {
+    e.preventDefault(); setAuto(false); prev();
+  } else if (e.code === 'KeyA') {
+    setAuto(!auto);
+    if (auto && finished) goto(0);
+  } else if (e.code === 'KeyV') {
+    setOrbit(!orbit);
+  } else if (e.code === 'KeyR') {
+    setAuto(false); setOrbit(false); goto(0);
+  }
+});
+addEventListener('click', () => { setAuto(false); next(); });
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  sizeSvg();
+  if (!finished) applyCam(current);
+});
+
+/* ============================================================
+   主迴圈
+   ============================================================ */
+let last = performance.now();
+
+function tick(now) {
+  requestAnimationFrame(tick);
+  const dt = Math.min(50, now - last);
+  last = now;
+  clock += dt / 1000;
+
+  if (!finished) {
+    const sc = SCENES[current];
+    if (progress < 1) {
+      progress = Math.min(1, progress + dt / sc.dur);
+    } else if (auto) {
+      hold += dt;
+      if (hold > 1800) { hold = 0; goto(current + 1); }
+    }
+    sc.apply(progress);
+    // gauge 統一在這裡畫：apply() 跑完，場上狀態才是最終的
+    paintGauge(GAUGE_LABEL[current] || '');
+  }
+
+  // 預設固定視角；按 V 才在定格後慢慢環繞。有 overlay 的幕不要轉太多，圖表才對得住
+  if (orbit && (finished || progress >= 1)) {
+    const sc = SCENES[current];
+    camT.a += dt / (sc && sc.ovl ? 90000 : 30000);
+  }
+
+  const k = 1 - Math.pow(0.0018, dt / 1000);
+  camC.r    += (camT.r    - camC.r)    * k;
+  camC.y    += (camT.y    - camC.y)    * k;
+  camC.a    += (camT.a    - camC.a)    * k;
+  camC.look += (camT.look - camC.look) * k;
+  camC.x    += (camT.x    - camC.x)    * k;
+  camC.z    += (camT.z    - camC.z)    * k;
+
+  camera.position.set(
+    camC.x + Math.cos(camC.a) * camC.r,
+    camC.y,
+    camC.z + Math.sin(camC.a) * camC.r
+  );
+  camera.lookAt(camC.x, camC.look, camC.z);
+
+  renderer.render(scene, camera);
+}
+
+/* 除錯用：讓外部可以直接跳到某一幕的某個時間點 */
+window.__rl = {
+  seek(sceneIndex, t = 1, snapCam = true) {
+    goto(sceneIndex);
+    progress = Math.min(1, Math.max(0, t));
+    SCENES[current].apply(progress);
+    if (snapCam) Object.assign(camC, camT);
+  },
+  state: () => ({ current, progress, finished }),
+
+  // 診斷：實際畫出來的機櫃（世界包圍盒 + 材質），用來驗證畫面而不是猜
+  drawn: () => {
+    const name = m => m === M.rack ? 'rack' : m === M.rackLive ? 'live'
+      : m === M.rackHot ? 'hot' : m === M.rackDead ? 'dead'
+      : m === M.rackNew ? 'new' : m === M.rackLock ? 'lock' : 'other';
+    const out = [];
+    plants.forEach((rs, pi) => rs.forEach(r => {
+      if (!r.visible) return;
+      out.push({ plant: pi, level: r.userData.level,
+                 mat: name(r.userData.body.material),
+                 y: +r.position.y.toFixed(2) });
+    }));
+    contractRacks.forEach((r, i) => {
+      if (!r.visible) return;
+      out.push({ plant: 'contract', level: i,
+                 mat: name(r.userData.body.material),
+                 y: +r.position.y.toFixed(2) });
+    });
+    return out;
+  },
+
+  // 診斷：光點的分佈（顏色分類 + y 範圍），驗證排隊/超載有沒有真的畫出來
+  load: () => {
+    const cname = m => m === dotMat.normal ? 'normal'
+      : m === dotMat.drop ? 'drop' : m === dotMat.ok ? 'ok'
+      : m === dotMat.sub ? 'sub' : '?';
+    const vis = dots3d.filter(d => d.visible);
+    const by = {};
+    vis.forEach(d => { const c = cname(d.material); by[c] = (by[c] || 0) + 1; });
+    return {
+      count: vis.length, byColor: by,
+      yMin: vis.length ? +Math.min(...vis.map(d => d.position.y)).toFixed(2) : null,
+      yMax: vis.length ? +Math.max(...vis.map(d => d.position.y)).toFixed(2) : null,
+      xMin: vis.length ? +Math.min(...vis.map(d => d.position.x)).toFixed(2) : null,
+      xMax: vis.length ? +Math.max(...vis.map(d => d.position.x)).toFixed(2) : null
+    };
+  },
+
+  // 診斷：overlay 有沒有真的畫出東西（幾個 path / text）
+  ovl: () => ({
+    paths: svg.querySelectorAll('path').length,
+    lines: svg.querySelectorAll('line').length,
+    texts: [...svg.querySelectorAll('text')].map(e => e.textContent),
+    viewBox: svg.getAttribute('viewBox')
+  }),
+
+  // 診斷：幕1 的核心 —— 曲線真的有穿過階梯嗎？
+  gap: () => {
+    const bands = [];
+    let cur = null;
+    for (let i = 0; i <= 200; i++) {
+      const u = i / 200;
+      const over = demandY(u) > supplyY(u);
+      if (over && !cur) cur = { a: +u.toFixed(3), b: +u.toFixed(3) };
+      else if (over) cur.b = +u.toFixed(3);
+      else if (cur) { bands.push(cur); cur = null; }
+    }
+    if (cur) bands.push(cur);
+    return { gapBands: bands,
+             demandEnd: +demandY(1).toFixed(3), supplyEnd: +supplyY(1).toFixed(3) };
+  },
+
+  // 診斷：契約機組被填到第幾層（幕5 的重點）
+  contract: () => contractRacks.map((r, i) => ({
+    level: i, visible: r.visible,
+    lit: r.userData.body.material === M.rackNew
+  })),
+
+  // 診斷：把所有「可見」的東西投影到螢幕 NDC，直接量有沒有出框。
+  // |x|>1 或 |y|>1 就是被切掉了 —— 不用靠眼睛猜。
+  fit: () => {
+    camera.updateMatrixWorld();
+    const box = new THREE.Box3();
+    let any = false;
+    scene.traverse(o => {
+      if (!o.isMesh && !o.isLine) return;
+      if (o === ground || o === grid) return;
+      let p = o, vis = true;
+      while (p) { if (p.visible === false) { vis = false; break; } p = p.parent; }
+      if (!vis) return;
+      const bb = new THREE.Box3().setFromObject(o);
+      if (!isFinite(bb.min.x)) return;
+      box.union(bb); any = true;
+    });
+    if (!any) return { empty: true };
+    // 量包圍盒 8 個角的投影範圍
+    let nx = Infinity, px = -Infinity, ny = Infinity, py = -Infinity;
+    for (let i = 0; i < 8; i++) {
+      const v = new THREE.Vector3(
+        i & 1 ? box.max.x : box.min.x,
+        i & 2 ? box.max.y : box.min.y,
+        i & 4 ? box.max.z : box.min.z
+      ).project(camera);
+      nx = Math.min(nx, v.x); px = Math.max(px, v.x);
+      ny = Math.min(ny, v.y); py = Math.max(py, v.y);
+    }
+    return {
+      world: { xMin: +box.min.x.toFixed(1), xMax: +box.max.x.toFixed(1),
+               yMax: +box.max.y.toFixed(1) },
+      ndc: { xMin: +nx.toFixed(2), xMax: +px.toFixed(2),
+             yMin: +ny.toFixed(2), yMax: +py.toFixed(2) },
+      clipped: nx < -1 || px > 1 || ny < -1 || py > 1,
+      // 字卡佔畫面左邊約 34vw → NDC x < -0.32 是字卡區。
+      // 量「中心」而不是角落：角落被半透明字卡壓到不影響閱讀，
+      // 主體中心跑進字卡才是真的看不到。
+      centerBehindCard: ((nx + px) / 2) < -0.32
+    };
+  },
+
+  // 診斷：圖表底板下緣的 NDC y（3D 頂端必須低於它，否則被底板蓋住）
+  ndcTop: () => ndcChartBottom(),
+
+  // 診斷：畫面上所有偏黃/橘的可見物件是什麼（用來抓殘留的舊物件）
+  yellows: () => {
+    scene.updateMatrixWorld(true);
+    const out = {};
+    scene.traverse(o => {
+      if (!o.isMesh) return;
+      let p = o, vis = true;
+      while (p) { if (p.visible === false) { vis = false; break; } p = p.parent; }
+      if (!vis) return;
+      const c = o.material && o.material.color;
+      if (!c) return;
+      if (c.r > 0.55 && c.g > 0.35 && c.b < 0.45) {
+        const wp = new THREE.Vector3().setFromMatrixPosition(o.matrixWorld);
+        const isDot = dots3d.includes(o);
+        const key = isDot ? 'load-dot(橘=排隊中)'
+                  : o.geometry.type + '@#' + c.getHexString()
+                    + ' x=' + wp.x.toFixed(0) + ' y=' + wp.y.toFixed(1);
+        out[key] = (out[key] || 0) + 1;
+      }
+    });
+    return out;
+  },
+
+  // 診斷：電廠每個零件的底部高度 + 有沒有超出基座範圍。
+  // 期望：底部 >= PAD_TOP-0.01（坐在基座上，不浮不埋），且 x/z 在基座內。
+  grounded: () => {
+    scene.updateMatrixWorld(true);
+    const rows = [];
+    const padHalfW = 7.4 / 2, padHalfL = PAD_LEN / 2;
+    /* 用「整組」來判定：上段塔身、煙囪環本來就疊在別的零件上面，
+       單看它們一定「浮空」。真正該檢查的是每一座電廠的整組零件
+       ——最低點要坐在基座上，且整組不能超出基座。 */
+    stacks.forEach((g, pi) => {
+      if (!g.visible) return;
+      const bb = new THREE.Box3().setFromObject(g);
+      if (!isFinite(bb.min.y)) return;
+      const cx = PLANT_X[pi], cz = PLANT_Z[pi];
+      rows.push({
+        plant: pi,
+        bottom: +bb.min.y.toFixed(2),
+        floating: bb.min.y > PAD_TOP + 0.05,
+        buried: bb.min.y < PAD_TOP - 0.05,
+        outsidePad: (bb.min.x < cx - padHalfW - .05) || (bb.max.x > cx + padHalfW + .05)
+                 || (bb.min.z < cz - padHalfL - .05) || (bb.max.z > cz + padHalfL + .05)
+      });
+    });
+    // 機組也一起檢查（它們也該坐在基座上）
+    plants.forEach((units, pi) => units.forEach(u => {
+      if (!u.visible) return;
+      const bb = new THREE.Box3().setFromObject(u);
+      if (!isFinite(bb.min.y)) return;
+      rows.push({ plant: pi, unit: u.userData.level,
+        bottom: +bb.min.y.toFixed(2),
+        floating: bb.min.y > PAD_TOP + 0.06,
+        buried: bb.min.y < PAD_TOP - 0.06, outsidePad: false });
+    }));
+    return { padTop: PAD_TOP,
+             bad: rows.filter(r => r.floating || r.buried || r.outsidePad),
+             checked: rows.length };
+  },
+
+  // 診斷：三個角色在螢幕上的水平位置（NDC x）。
+  // 期望恆成立：電廠 < 電網 < 房子（電廠永遠在左，房子永遠在右）
+  layout: () => {
+    camera.updateMatrixWorld();
+    const px = o => new THREE.Vector3().setFromMatrixPosition(o.matrixWorld).project(camera).x;
+    const avg = a => a.length ? a.reduce((x,y)=>x+y,0)/a.length : null;
+    const plantXs = [];
+    plants.forEach(rs => rs.forEach(r => { if (r.visible) plantXs.push(px(r)); }));
+    const houseXs = [];
+    houses.forEach(h => { if (h.visible) houseXs.push(px(h)); });
+    factories.forEach(f => { if (f.visible) houseXs.push(px(f)); });
+    const pylonXs = pylons.map(px);
+    const P = avg(plantXs), G = avg(pylonXs), H = avg(houseXs);
+    return {
+      plant: P === null ? null : +P.toFixed(2),
+      grid:  +G.toFixed(2),
+      house: H === null ? null : +H.toFixed(2),
+      orderOK: (P !== null && H !== null) ? (P < G && G < H) : null
+    };
+  },
+
+  cam: () => ({ r: +camC.r.toFixed(1), y: +camC.y.toFixed(1),
+                a: +camC.a.toFixed(2), look: +camC.look.toFixed(1),
+                x: +camC.x.toFixed(1) })
+};
+
+applyCam(0);
+Object.assign(camC, camT);
+goto(0);
+requestAnimationFrame(tick);
+setTimeout(() => document.getElementById('loading').classList.add('off'), 400);
+</script>
+</body>
+</html>
