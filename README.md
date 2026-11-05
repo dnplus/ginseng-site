@@ -2,7 +2,7 @@
 
 [GitHub 原始碼](https://github.com/dnplus/ginseng-site)
 
-已部署：[ginseng.dnplus.dev](https://ginseng.dnplus.dev) · [Workers 預覽](https://ginseng-try-catch.dnplus.workers.dev)。
+已部署：[ginseng.dnplus.dev](https://ginseng.dnplus.dev)。
 
 2026-10-19 已建立專用 D1 並套用 migrations。首頁與表單可公開使用；目前 `CF_ACCESS_AUD` 未設定，後台頁面與匯出一律拒絕存取，等待具備 Access 管理權限後再開通管理者登入。
 
@@ -40,21 +40,26 @@ pnpm test:smoke
 
 - **PR**：`.github/workflows/ci.yml` 跑 `pnpm check`、`pnpm test`、正式 build，並對 build 跑 `pnpm test:smoke`（只用 CI 機器上的本地 D1）。
 - **合併到 `main`**：`.github/workflows/deploy.yml` 先跑同一套檢查，再 `pnpm db:migrate:remote` 套用新的 D1 migration，然後 `pnpm run deploy`，最後確認正式站幾個頁面回 200。一次只跑一個部署，後到的排隊等。也可以在 Actions 頁手動執行（workflow_dispatch）。
-- **一次性設定**：在 Cloudflare 建 API token（Custom token：Account → Workers Scripts: Edit、D1: Edit、Account Settings: Read；Zone `dnplus.dev` → Workers Routes: Edit），存成 GitHub repo 的 Actions secret `CLOUDFLARE_API_TOKEN`。Worker 的 secret（`STUDIO_OWNER_EMAIL`、`RESEND_API_KEY` 等）照舊用 `wrangler secret put` 設一次即可，部署不會覆蓋。
+- **一次性設定**：在 Cloudflare 建帳戶 API token，權限盡量小：
+  - 帳戶：D1 Edit、Account Settings Read
+  - Workers › `ginseng-try-catch`：Individual Workers Editor
+  - Zone `dnplus.dev`：Workers Routes Edit（自訂網域需要）
+
+  `workers_dev` 關閉，所以不需要帳戶層級的 Workers Scripts 權限；之後若打開 workers.dev，wrangler 會讀帳戶的 workers.dev 子網域，token 要再加帳戶層級的 Workers Scripts 權限。token 存成 GitHub `production` environment 的 secret `CLOUDFLARE_API_TOKEN`（environment 限定只有 `main` 能部署）。Worker 的 secret（`STUDIO_OWNER_EMAIL`、`RESEND_API_KEY` 等）照舊用 `wrangler secret put` 設一次即可，部署不會覆蓋。
 - Migration 只新增欄位與資料表，套用後、新版上線前舊版仍可正常運作；若之後要刪欄位或改名，請分兩次部署。
 
 ## 部署到你的 Cloudflare 帳戶
 
 1. 執行 `pnpm exec wrangler login`，再以 `pnpm exec wrangler whoami` 確認帳戶。
 2. 本專案已綁定 `ginseng-try-catch` D1。若部署到其他帳號，先執行 `pnpm db:create`，再將新的 D1 UUID 填入 `wrangler.jsonc` 的 `d1_databases[0].database_id`。
-3. 在 Cloudflare Zero Trust 建立 Self-hosted Access application，使用同一 application 保護實際部署主機上的 `/studio`、`/studio/*`、`/api/studio/*`，Allow policy 限制為管理者 Email。如果使用 workers.dev 和自訂網域，必須各自加入對應 hostname/path。
+3. 在 Cloudflare Zero Trust 建立 Self-hosted Access application，使用同一 application 保護實際部署主機上的 `/studio`、`/studio/*`、`/api/studio/*`，Allow policy 限制為管理者 Email。若之後再開啟 workers.dev 或其他網域，每個 hostname 都要各自加入。
 4. 在 `wrangler.jsonc` 設定 `SITE_URL` 為實際 HTTPS 網址、`CF_ACCESS_TEAM_DOMAIN` 為完整的 `https://<team>.cloudflareaccess.com`、`CF_ACCESS_AUD` 為該 application 的 AUD。
 5. 執行 `pnpm exec wrangler secret put STUDIO_OWNER_EMAIL`，輸入允許管理後台的 Email。不可放在前端程式或提交到 Git 的檔案。
 6. 執行 `pnpm db:migrate:remote` 建立遠端資料表，再執行 `pnpm deploy`。部署指令會重新 build，確保最新 D1 與環境設定寫入建置。
 
 替換 D1 UUID 也會改變本地資料庫識別；之後繼續本地開發前請再執行 `pnpm db:migrate`，舊的本地測試資料不會自動移入新識別的資料庫。
 
-`pnpm deploy:dry-run` 只產生部署檢核產物。穩定預覽使用 `ginseng-try-catch.dnplus.workers.dev`；`preview_urls`（每版額外產生的網址）保持關閉，避免增加未受 Access 保護的後台入口。
+`pnpm deploy:dry-run` 只產生部署檢核產物。對外只有自訂網域 `ginseng.dnplus.dev`；`workers_dev`（`*.workers.dev` 網址）與 `preview_urls`（每版額外產生的網址）都關閉，避免出現未受 Access 保護的後台入口，部署用的 API token 也不需要帳號層級的 Workers 權限。
 
 JWT 驗證會檢查 Cloudflare 公開金鑰簽章、issuer、AUD、有效期限及管理者 Email；不接受 caller 提供的 Email 或 Sites 登入標頭。設定缺漏或驗證失敗時後台一律拒絕，管理頁及匯出回應不會被快取。
 
