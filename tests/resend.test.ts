@@ -59,3 +59,42 @@ test('the plain-text part resolves site-relative Markdown links too', () => {
   const issue = parsePost('/content/newsletters/en/2026-12.md', '---\ntitle: December\ndate: 2026-12-01\n---\nSee [the post](/en/blog/x)');
   assert.ok(issueEmail(issue, '<p>x</p>', 'https://site.test').text.includes('(https://site.test/en/blog/x)'));
 });
+
+test('email content gets the cafe styles: sticker headings, styled links, quotes and video cards', async () => {
+  const {styleContent} = await import('../lib/email-layout.ts');
+  const html = styleContent('<h2>本期影片</h2><p><a href="https://www.youtube.com/watch?v=tbj0Azzlguw">EP087</a></p><p>See <a href="/blog/ep087">the post</a> and <img src="/blog/ep087/zh-TW-01.png" alt=""></p><blockquote>\n<p>quote</p>\n</blockquote>', 'https://site.test', 'zh-TW');
+  assert.match(html, /<h2 style="[^"]*"><span style="[^"]*background:#9fd49a[^"]*">本期影片<\/span><\/h2>/);
+  assert.ok(html.includes('https://i.ytimg.com/vi/tbj0Azzlguw/hqdefault.jpg') && html.includes('>EP087</p>') && html.includes('看這集影片'), 'A lone YouTube link becomes a video card with its caption.');
+  assert.ok(html.includes('href="https://site.test/blog/ep087"') && html.includes('src="https://site.test/blog/ep087/zh-TW-01.png"'), 'Site-relative links and images become absolute.');
+  assert.equal((html.match(/\sstyle="/g) ?? []).length, (html.match(/<(?:a|img|p|h2|span|blockquote|table|td)\b/g) ?? []).length, 'Every styled element carries exactly one style attribute.');
+  assert.match(html, /<p style="margin:0;[^"]*">quote<\/p>\s*<\/blockquote>/, 'The last paragraph in a quote has no bottom gap.');
+});
+
+test('a bare YouTube URL becomes a card without a caption; other lone links stay links', async () => {
+  const {styleContent} = await import('../lib/email-layout.ts');
+  const bare = styleContent('<p><a href="https://youtu.be/tbj0Azzlguw">https://youtu.be/tbj0Azzlguw</a></p>', 'https://site.test', 'en');
+  assert.ok(bare.includes('hqdefault.jpg') && bare.includes('Watch the video') && !bare.includes('>https://youtu.be/tbj0Azzlguw</p>'));
+  const plain = styleContent('<p><a href="https://example.test/">Example</a></p>', 'https://site.test', 'en');
+  assert.ok(!plain.includes('hqdefault') && plain.includes('>Example</a>'));
+});
+
+test('video card captions decode Markdown entities once', async () => {
+  const {styleContent} = await import('../lib/email-layout.ts');
+  const html = styleContent('<p><a href="https://www.youtube.com/watch?v=tbj0Azzlguw">Cats &amp; dogs &lt;3 &quot;hi&quot; Tom&#39;s</a></p>', 'https://site.test', 'en');
+  const caption = 'Cats &amp; dogs &lt;3 &quot;hi&quot; Tom&#39;s';
+  assert.ok(html.includes(`>${caption}</p>`) && html.includes(`alt="${caption}"`));
+  assert.ok(!html.includes('&amp;amp;') && !html.includes('&amp;lt;') && !html.includes('&amp;quot;') && !html.includes('&amp;#39;'));
+});
+
+test('issue and confirmation emails share the branded shell', async () => {
+  const {confirmationEmail} = await import('../lib/newsletter-email.ts');
+  const confirm = confirmationEmail('https://site.test', 'en', 'a@example.test', '11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222');
+  for (const html of [confirm.html, issueEmail(parsePost('/content/newsletters/en/x.md', '---\ntitle: X\ndate: 2026-11-01\nsummary: Preview line\n---\nHi'), '<p>Hi</p>', 'https://site.test').html]) {
+    assert.ok(html.startsWith('<!doctype html>') && html.includes('https://site.test/assets/email/ginseng-avatar.png') && html.includes('TRY CATCH'));
+    assert.ok(html.includes('https://x.com/ginsengtrycatch') && html.includes('https://pacafe.dnplus.dev'), 'Footer links the socials and products.');
+    assert.ok(html.includes('prefers-color-scheme:dark'), 'Dark mode styles are included.');
+  }
+  assert.ok(confirm.html.includes('https://site.test/en/newsletter/confirm?token=11111111-1111-4111-8111-111111111111'));
+  assert.match(confirm.html, /<a class="btn" href="[^"]+" style="[^"]*color:#263f35/);
+  assert.ok(confirm.html.includes('.card a.btn{color:#263f35!important}'), 'Dark mode keeps the peach confirm button in ink, not mint.');
+});

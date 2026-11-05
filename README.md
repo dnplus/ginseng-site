@@ -90,6 +90,8 @@ D1 是訂閱名單的唯一來源；確認後的訂閱者同步成 Resend 聯絡
 3. 在 Resend 建 webhook 指向 `https://<網域>/api/webhooks/resend`，勾選 `contact.updated` 與 `email.complained`，把 signing secret 存成 `RESEND_WEBHOOK_SECRET`。在 Resend 退訂或檢舉垃圾信的人，會同步改成本站退訂。
 4. `pnpm db:migrate:remote` 套用 `0004`，部署後到 `/studio` 按「同步名單」補同步既有訂閱者（每次 15 筆，可重按）。之後確認、退訂都會即時同步，失敗的留在待同步。
 5. 寫電子報：在 `content/newsletters/<語系>/<slug>.md` 新增一期（格式同文章，路徑用站內相對路徑即可，寄出時會轉成絕對網址），部署後在 `/studio` 按「建立 Resend 草稿」。**本站只建草稿**，到 Resend 寄測試信、確認後再發送。信尾自動帶網頁版連結與 Resend 退訂連結。
+   - 信件版型在 `lib/email-layout.ts`（電子報與確認信共用）：深綠頁首放吉祥物頭像與黃色招牌、小標是綠色貼紙、引言是蜜桃色左線、頁尾有社群與產品連結，支援深色模式與窄螢幕，用 table 排版讓 Outlook 也不跑版。
+   - 內文裡**單獨一行的 YouTube 連結**會變成「縮圖＋看影片按鈕」的卡片；寫成 `[標題](https://www.youtube.com/watch?v=…)` 會把標題放在卡片上。
 
 後台 CSV 匯出仍含語言、退訂網址與一鍵退訂網址。
 
