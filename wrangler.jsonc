@@ -6,7 +6,7 @@
   "routes": [{"pattern": "ginseng.dnplus.dev", "custom_domain": true}],
   "compatibility_date": "2026-05-15",
   "compatibility_flags": ["nodejs_compat"],
-  "workers_dev": true,
+  "workers_dev": false,
   "preview_urls": false,
   "assets": {
     "binding": "ASSETS",
