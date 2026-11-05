@@ -1,5 +1,5 @@
 /// <reference types="vite/client" />
-import { Marked } from 'marked';
+import { Marked, Renderer } from 'marked';
 import { indexPosts } from './blog';
 
 // Bundled into the Worker at build time; there is no filesystem at request time.
@@ -19,6 +19,10 @@ const marked = new Marked({gfm: true, renderer: {
   },
   image({href, title, text}) {
     return `<img src="${attr(href)}" alt="${attr(text)}"${title ? ` title="${attr(title)}"` : ''} loading="lazy" decoding="async"/>`;
+  },
+  // The wrapper scrolls instead of the table, so the table keeps its table role in Safari.
+  table(token) {
+    return `<div class="table-scroll">${Renderer.prototype.table.call(this, token)}</div>\n`;
   },
 }});
 /** Post bodies are written by the site owner and reviewed in git, so the HTML is trusted. */
