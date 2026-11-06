@@ -354,6 +354,7 @@ a.hub-card:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(-
 /* Blog */
 .post-list { display: grid; gap: 18px; margin: 36px 0 0; padding: 0; list-style: none; }
 .post-card { display: grid; grid-template-columns: 220px 1fr; align-items: center; gap: 24px; padding: 16px; border: 2px solid var(--leaf-dk); border-radius: 20px; background: var(--paper); box-shadow: 5px 5px 0 var(--leaf-dk); transition: transform .2s, box-shadow .2s; }
+.post-card:not(:has(.thumb)) { grid-template-columns: 1fr; padding: 22px 26px; }
 .post-card:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--leaf-dk); }
 .post-card .thumb img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 12px; }
 .post-card .thumb-mascot { background: var(--blush); }
