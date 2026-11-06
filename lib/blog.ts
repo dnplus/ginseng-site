@@ -11,6 +11,8 @@ import { isLocale, LOCALES, type Locale } from './i18n.ts';
  *   summary      one or two sentences for lists, feeds and meta description
  *   episode      channel episode number, e.g. 87; makes /ep/087 point here
  *   youtube      YouTube video id of the episode
+ *   cover        site image for lists, e.g. /blog/ep087/zh-TW-01.webp; wins over the YouTube thumbnail (use it while
+ *                the video is private, since YouTube then serves a grey placeholder)
  *   tags         [Notion, AI Agent]
  *   translatedFrom  locale the post was translated from; shows a "translated" note
  *   legacyUrl    the old Notion URL, kept for reference
@@ -18,6 +20,10 @@ import { isLocale, LOCALES, type Locale } from './i18n.ts';
  */
 export type Post = {
   locale: Locale; slug: string; title: string; date: string; summary: string; episode: number | null; youtube: string | null;
+  /** Front matter `cover`: the list image, ahead of the YouTube thumbnail. */
+  cover: string | null;
+  /** The post's first site image; the list image when there is neither a cover nor a video. */
+  firstImage: string | null;
   tags: string[]; translatedFrom: Locale | null; legacyUrl: string | null; draft: boolean; body: string;
 };
 
@@ -46,6 +52,9 @@ export function parseFrontMatter(source: string): {data: Record<string, Value>; 
   return {data, body: source.slice(match[0].length)};
 }
 
+/** First site-relative Markdown image (`![alt](/path)`) in a post body. */
+const firstImage = (body: string) => /!\[[^\]]*\]\((\/[^\s)]+)/.exec(body)?.[1] ?? null;
+
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const text = (value: Value | undefined) => typeof value === 'string' ? value : typeof value === 'number' ? String(value) : '';
 
@@ -64,8 +73,11 @@ export function parsePost(path: string, source: string): Post {
   if (translatedFrom !== null && !isLocale(translatedFrom)) throw new Error(`${path}: translatedFrom must be a locale`);
   const episode = data.episode === undefined ? null : Number(data.episode);
   if (episode !== null && !(Number.isInteger(episode) && episode > 0)) throw new Error(`${path}: episode must be a positive integer`);
+  const cover = text(data.cover) || null;
+  if (cover !== null && !cover.startsWith('/')) throw new Error(`${path}: cover must be a site path such as /blog/${slug}/zh-TW-01.webp`);
   return {
     locale, slug, title, date, summary: text(data.summary), episode, youtube: text(data.youtube) || null,
+    cover, firstImage: firstImage(body),
     tags: Array.isArray(data.tags) ? data.tags : [],
     translatedFrom: translatedFrom as Locale | null, legacyUrl: text(data.legacyUrl) || null, draft: data.draft === true, body,
   };

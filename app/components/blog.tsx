@@ -8,10 +8,17 @@ import { thumbnail, watchUrl } from '@/lib/youtube';
 
 const dateLabel = (date: string, locale: Locale) => new Intl.DateTimeFormat(locale, {dateStyle: 'long', timeZone: 'Asia/Taipei'}).format(new Date(`${date}T12:00:00+08:00`));
 
+/** Every card gets a picture: an explicit cover, the video thumbnail, the post's first image, or the mascot. */
+function PostThumb({post}: {post: Post}) {
+  const src = post.cover ?? (post.youtube ? thumbnail(post.youtube, 'mqdefault') : post.firstImage);
+  if (src) return <span className="thumb"><img src={src} alt="" width="320" height="180" loading="lazy"/></span>;
+  return <span className="thumb thumb-mascot"><img src="/assets/ginseng-cutout.webp" alt="" width="320" height="180" loading="lazy"/></span>;
+}
+
 function PostCard({post, locale}: {post: Post; locale: Locale}) {
   const t = dictionary(post.locale).blog;
   return <li><a className="post-card" href={localePath(post.locale, postPath(post))} lang={post.locale === locale ? undefined : HTML_LANG[post.locale]}>
-    {post.youtube && <span className="thumb"><img src={thumbnail(post.youtube, 'mqdefault')} alt="" width="320" height="180" loading="lazy"/></span>}
+    <PostThumb post={post}/>
     <span className="post-card-text">
       <small>{post.episode ? `${t.episode(post.episode)} · ` : ''}<time dateTime={post.date}>{dateLabel(post.date, post.locale)}</time></small>
       <h2>{post.title}</h2>
