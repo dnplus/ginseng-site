@@ -43,3 +43,13 @@ test('feeds and emails get absolute links and images', async () => {
   assert.equal(absolutize('<a href="/blog/x">x</a><img src="/blog/x/zh-TW-01.png" alt=""><a href="https://a.test/">a</a><a href="//cdn.test/y">y</a>', 'https://site.test/'),
     '<a href="https://site.test/blog/x">x</a><img src="https://site.test/blog/x/zh-TW-01.png" alt=""><a href="https://a.test/">a</a><a href="//cdn.test/y">y</a>');
 });
+
+test('a post knows its explicit cover and its first site image, so every list card can show a picture', () => {
+  const parsed = parsePost('/content/posts/zh-TW/ep083.md', post('title: X\ndate: 2026-10-24', 'Intro\n\n![外部](https://example.com/a.png)\n\n![第一張](/blog/ep083/zh-TW-01.webp)\n\n![第二張](/blog/ep083/zh-TW-02.webp)'));
+  assert.equal(parsed.cover, null);
+  assert.equal(parsed.firstImage, '/blog/ep083/zh-TW-01.webp', 'external images are skipped');
+  const covered = parsePost('/content/posts/zh-TW/ep087.md', post('title: X\ndate: 2026-10-31\nyoutube: SP-pwffKN3g\ncover: /blog/ep087/zh-TW-03.webp'));
+  assert.equal(covered.cover, '/blog/ep087/zh-TW-03.webp');
+  assert.equal(parsePost('/content/posts/zh-TW/x.md', post('title: X\ndate: 2026-10-31')).firstImage, null);
+  assert.throws(() => parsePost('/content/posts/zh-TW/x.md', post('title: X\ndate: 2026-10-31\ncover: https://example.com/a.png')), /cover/);
+});

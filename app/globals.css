@@ -357,6 +357,8 @@ a.hub-card:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(-
 .post-card:not(:has(.thumb)) { grid-template-columns: 1fr; padding: 22px 26px; }
 .post-card:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--leaf-dk); }
 .post-card .thumb img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 12px; }
+.post-card .thumb-mascot { background: var(--blush); }
+.post-card .thumb-mascot img { object-fit: contain; object-position: center bottom; padding-top: 10px; }
 .post-card small { font-size: 13px; font-weight: 800; color: var(--muted); }
 .post-card h2 { margin-top: 4px; font-size: 22px; }
 .post-card p { margin-top: 6px; font-size: 15px; color: var(--muted); }
