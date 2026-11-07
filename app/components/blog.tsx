@@ -70,7 +70,7 @@ export function BlogPost({post}: {post: Post}) {
           <p key={each.locale} className="article-translation"><a href={localePath(each.locale, postPath(each))} hrefLang={HTML_LANG[each.locale]} lang={HTML_LANG[each.locale]}>{dictionary(each.locale).blog.sticker}: {each.title} <ArrowUpRight size={14}/></a></p>)}
         {post.translatedFrom && <p className="article-note">{t.translated}</p>}
         {post.youtube && <a className="article-video" href={watchUrl(post.youtube)} {...external}>
-          <span className="thumb"><img src={thumbnail(post.youtube)} alt="" width="1280" height="720"/><i className="play"><Play size={26} fill="currentColor"/></i></span>
+          <span className="thumb"><img src={thumbnail(post.youtube)} alt="" width="1280" height="720" fetchPriority="high"/><i className="play"><Play size={26} fill="currentColor"/></i></span>
           <span>{t.watch} <ArrowUpRight size={16}/></span>
         </a>}
         <div className="prose" dangerouslySetInnerHTML={{__html: renderMarkdown(post.body)}}/>
