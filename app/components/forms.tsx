@@ -3,6 +3,7 @@ import { useState, type FormEvent } from 'react';
 import { ArrowUpRight, Check, LoaderCircle } from 'lucide-react';
 import { TOPICS } from '@/lib/validation';
 import { dictionary, localePath, type Locale } from '@/lib/i18n';
+import { track } from '@/lib/analytics';
 
 type Status = 'idle' | 'sending' | 'success' | 'error';
 async function send(url: string, form: HTMLFormElement, locale: Locale) {
@@ -22,7 +23,7 @@ export function ContactForm({locale = 'zh-TW'}: {locale?: Locale}) {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (status === 'sending') return;
     const form = event.currentTarget; setStatus('sending'); setError('');
-    try { await send('/api/contact', form, locale); setStatus('success'); form.reset(); } catch (e) { setError(e instanceof Error ? e.message : t.network); setStatus('error'); }
+    try { await send('/api/contact', form, locale); track('contact_submit', {locale}); setStatus('success'); form.reset(); } catch (e) { setError(e instanceof Error ? e.message : t.network); setStatus('error'); }
   }
   if (status === 'success') return <div className="form-success" role="status"><span className="success-icon"><Check size={31}/></span><h3>{t.contactDoneTitle}</h3><p>{t.contactDoneBody}</p><button className="underlined" onClick={() => setStatus('idle')}>{t.contactAgain} <ArrowUpRight size={18}/></button></div>;
   return <form className="contact-form" onSubmit={submit} aria-label={t.contactLabel}><Honeypot/><div className="form-row"><label>{t.name}<input name="name" placeholder={t.namePlaceholder} required maxLength={80} autoComplete="name"/></label><label>{t.company}<input name="company" placeholder={t.companyPlaceholder} maxLength={120} autoComplete="organization"/></label></div><label>Email<input type="email" name="email" placeholder={t.emailPlaceholder} required maxLength={254} autoComplete="email"/></label><label>{t.topic}<select name="topic" defaultValue="" required><option value="" disabled>{t.topicPlaceholder}</option>{TOPICS.map(topic => <option key={topic} value={topic}>{t.topics[topic] ?? topic}</option>)}</select></label><label>{t.idea}<textarea name="message" placeholder={t.ideaPlaceholder} required minLength={10} maxLength={3000} rows={4}/></label><label className="consent"><input type="checkbox" name="consent" required/><Consent parts={t.contactConsent} locale={locale}/></label><div className="form-bottom"><p className="form-error" role="alert">{error}</p><Submit status={status} locale={locale}>{t.contactSubmit}</Submit></div></form>;
@@ -33,7 +34,7 @@ export function NewsletterForm({locale = 'zh-TW'}: {locale?: Locale}) {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (status === 'sending') return;
     const form = event.currentTarget; setStatus('sending'); setError('');
-    try { await send('/api/subscribe', form, locale); setStatus('success'); form.reset(); } catch (e) { setError(e instanceof Error ? e.message : t.network); setStatus('error'); }
+    try { await send('/api/subscribe', form, locale); track('newsletter_signup', {locale}); setStatus('success'); form.reset(); } catch (e) { setError(e instanceof Error ? e.message : t.network); setStatus('error'); }
   }
   if (status === 'success') return <div className="newsletter-success" role="status"><Check size={30}/><div><h3>{t.newsletterDoneTitle}</h3><p>{t.newsletterDoneBody}</p></div></div>;
   return <form className="newsletter-form" onSubmit={submit} aria-label={t.newsletterLabel}><Honeypot/><div className="newsletter-fields"><label className="sr-only" htmlFor="newsletter-email">{t.newsletterEmail}</label><input id="newsletter-email" name="email" type="email" autoComplete="email" maxLength={254} placeholder={t.newsletterEmail} required/><Submit status={status} locale={locale}>{t.newsletterSubmit}</Submit></div><label className="consent"><input type="checkbox" name="consent" required/><Consent parts={t.newsletterConsent} locale={locale}/></label><p className="form-error" role="alert">{error}</p></form>;
