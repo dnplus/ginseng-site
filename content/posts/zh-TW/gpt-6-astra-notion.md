@@ -3,6 +3,7 @@ title: "GPT-6 Astra 上架 Notion：測試成績與使用邊界"
 date: 2026-09-05
 summary: "這頁整理 GPT-6 Astra 在 Notion 上架後的公開資訊、外部評測與使用邊界。"
 tags: [Notion, AI 工具]
+cover: /blog/gpt-6-astra-notion/cover.webp
 ---
 
 > ⚡ 這頁整理 GPT-6 Astra 在 Notion 上架後的公開資訊、外部評測與使用邊界。影片最後的 QR Code 指向本頁。
