@@ -6,6 +6,7 @@ interface __BaseEnv_Env {
 	NEWSLETTER_EMAIL: SendEmail;
 	ASSETS: Fetcher;
 	SITE_URL: string;
+	GTM_ID?: string;
 	RESEND_SEGMENT_ZH_TW: string;
 	RESEND_SEGMENT_EN: string;
 	RESEND_API_KEY?: string;

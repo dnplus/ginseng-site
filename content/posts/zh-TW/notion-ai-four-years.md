@@ -3,6 +3,7 @@ title: "Notion AI 四年演進：從寫作助手到工作中樞"
 date: 2026-08-22
 summary: "這頁整理 Notion AI 四年來怎麼從寫作助手走到工作中樞。"
 tags: [Notion, AI Agent, AI 工具]
+cover: /blog/notion-ai-four-years/cover.webp
 ---
 
 > 🧭 這頁整理 **Notion AI 四年來怎麼從寫作助手走到工作中樞**。影片最後的 QR Code 指向本頁。

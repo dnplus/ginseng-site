@@ -3,6 +3,7 @@ title: "OpenAI reset 狂歡背後的真相：算力調度與限流"
 date: 2026-08-22
 summary: "OpenAI reset 狂歡背後的真相：重置不只是在送額度，也會改變所有人的用量節奏。"
 tags: [AI Agent, AI 工具]
+cover: /blog/openai-reset-compute/cover.webp
 ---
 
 > 🔴 **OpenAI reset 狂歡背後的真相：**重置不只是在送額度，也會改變所有人的用量節奏。影片尾卡的 QR Code 指向本頁。
