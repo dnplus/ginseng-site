@@ -4,7 +4,7 @@ import { HTML_LANG, LOCALES, localePath, DEFAULT_LOCALE, type Locale } from '@/l
 import { issues, posts } from '@/lib/posts';
 
 const xml = (value: string) => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;');
-const PAGES = ['/', '/about', '/blog', '/newsletter', '/lab', '/community', '/privacy'];
+const PAGES = ['/', '/blog', '/newsletter', '/lab', '/community', '/privacy'];
 
 export function GET(request: Request) {
   const origin = siteOrigin(request);

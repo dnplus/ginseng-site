@@ -126,5 +126,3 @@ export async function latestVideos(fetcher: typeof fetch = fetch): Promise<Video
 
 export const thumbnail = (id: string, size: 'maxresdefault' | 'mqdefault' = 'maxresdefault') => `https://i.ytimg.com/vi/${id}/${size}.jpg`;
 export const watchUrl = (id: string) => `https://www.youtube.com/watch?v=${id}`;
-/** The privacy-enhanced player, loaded only after the visitor presses play. */
-export const embedUrl = (id: string) => `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0`;

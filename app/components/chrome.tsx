@@ -1,5 +1,5 @@
 import { ArrowUpRight, Camera, Globe, Menu, MessageCircle, PlaySquare, AtSign, ThumbsUp } from 'lucide-react';
-import { SubscribeLink } from './youtube';
+import { SubscribeLink } from './subscribe-link';
 import { dictionary, LANGUAGE_NAME, localePath, LOCALES, HTML_LANG, type Locale } from '@/lib/i18n';
 import { socials, type Social } from '@/lib/site';
 
@@ -19,7 +19,7 @@ function navItems(locale: Locale) {
     {href: at('/lab'), label: t.lab},
     {href: `${at('/')}#videos`, label: t.videos},
     {href: at('/community'), label: t.community},
-    {href: `${at('/about')}#contact`, label: t.contact},
+    {href: `${at('/')}#contact`, label: t.contact},
   ];
 }
 
@@ -36,14 +36,10 @@ export function LanguageSwitch({locale, path, available = LOCALES}: {locale: Loc
 
 export function SiteHeader({locale, path, available}: {locale: Locale; path: string; available?: readonly Locale[]}) {
   const t = dictionary(locale), items = navItems(locale);
-  // The subscribe button sits outside both navs so phones see it next to the menu, as on desktop.
   return <header className="header">
     <a href={localePath(locale, '/')} aria-label={t.homeLabel}><Plaque locale={locale}/></a>
-    <nav className="desktop-nav" aria-label={t.nav.main}>{items.map(item => <a key={item.href} href={item.href}>{item.label}</a>)}<LanguageSwitch locale={locale} path={path} available={available}/></nav>
-    <div className="header-actions">
-      <SubscribeLink className="nav-cta" locale={locale} placement="header" label={t.nav.youtube}><PlaySquare size={17} aria-hidden="true"/><span className="nav-cta-long">{t.nav.youtube}</span><span className="nav-cta-short" aria-hidden="true">{t.nav.youtubeShort}</span></SubscribeLink>
-      <details className="mobile-menu"><summary aria-label={t.nav.menu}><Menu size={24}/></summary><nav aria-label={t.nav.mobile}>{items.map(item => <a key={item.href} href={item.href}>{item.label}</a>)}<LanguageSwitch locale={locale} path={path} available={available}/></nav></details>
-    </div>
+    <nav className="desktop-nav" aria-label={t.nav.main}>{items.map(item => <a key={item.href} href={item.href}>{item.label}</a>)}<LanguageSwitch locale={locale} path={path} available={available}/><SubscribeLink className="nav-cta" locale={locale} placement="header">{t.nav.youtube}</SubscribeLink></nav>
+    <details className="mobile-menu"><summary aria-label={t.nav.menu}><Menu size={24}/></summary><nav aria-label={t.nav.mobile}>{items.map(item => <a key={item.href} href={item.href}>{item.label}</a>)}<SubscribeLink locale={locale} placement="menu">{t.nav.youtube}</SubscribeLink><LanguageSwitch locale={locale} path={path} available={available}/></nav></details>
   </header>;
 }
 
@@ -62,7 +58,7 @@ export function SiteFooter({locale, path, available}: {locale: Locale; path: str
   return <footer className="footer">
     <div className="wrap footer-inner">
       <div><a href={localePath(locale, '/')} aria-label={t.homeLabel}><Plaque locale={locale}/></a><p>{t.footer.tagline}</p></div>
-      <nav aria-label={t.footer.nav}>{socials(locale).map(social => <a key={social.url} href={social.url} {...external}>{social.name}</a>)}<a href={localePath(locale, '/blog')}>{t.nav.blog}</a><a href={localePath(locale, '/lab')}>{t.nav.lab}</a><a href={localePath(locale, '/community')}>{t.nav.community}</a><a href={localePath(locale, '/about')}>{t.nav.about}</a><a href={localePath(locale, '/newsletter')}>{t.nav.newsletter}</a><a href={localePath(locale, '/privacy')}>{t.footer.privacy}</a><LanguageSwitch locale={locale} path={path} available={available}/><span>© 2026 Ginseng Try Catch</span></nav>
+      <nav aria-label={t.footer.nav}>{socials(locale).map(social => <a key={social.url} href={social.url} {...external}>{social.name}</a>)}<a href={localePath(locale, '/blog')}>{t.nav.blog}</a><a href={localePath(locale, '/lab')}>{t.nav.lab}</a><a href={localePath(locale, '/community')}>{t.nav.community}</a><a href={localePath(locale, '/newsletter')}>{t.nav.subscribe}</a><a href={localePath(locale, '/privacy')}>{t.footer.privacy}</a><LanguageSwitch locale={locale} path={path} available={available}/><span>© 2026 Ginseng Try Catch</span></nav>
     </div>
   </footer>;
 }

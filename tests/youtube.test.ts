@@ -51,8 +51,7 @@ test('channel parser ignores unrelated JSON, playlists and malformed video ids',
   assert.deepEqual(parseChannelPage(`<script>var ytInitialData = ${JSON.stringify(models.map(lockupViewModel => ({lockupViewModel})))};</script>`), []);
 });
 
-test('the subscribe link asks YouTube to confirm, and the player is the privacy-enhanced embed', async () => {
-  const {SUBSCRIBE_URL, embedUrl} = await import('../lib/youtube.ts');
+test('the subscribe link asks YouTube to confirm the subscription', async () => {
+  const {SUBSCRIBE_URL} = await import('../lib/youtube.ts');
   assert.equal(SUBSCRIBE_URL, 'https://www.youtube.com/@GinsengTryCatch?sub_confirmation=1');
-  assert.equal(new URL(embedUrl('2QEyUXbNedY')).hostname, 'www.youtube-nocookie.com');
 });
