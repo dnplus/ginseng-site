@@ -35,11 +35,11 @@ export function LanguageSwitch({locale, path, available = LOCALES}: {locale: Loc
 }
 
 export function SiteHeader({locale, path, available}: {locale: Locale; path: string; available?: readonly Locale[]}) {
-  const t = dictionary(locale), items = navItems(locale);
+  const t = dictionary(locale), items = navItems(locale), subscribe = localePath(locale, '/newsletter');
   return <header className="header">
     <a href={localePath(locale, '/')} aria-label={t.homeLabel}><Plaque locale={locale}/></a>
     <nav className="desktop-nav" aria-label={t.nav.main}>{items.map(item => <a key={item.href} href={item.href}>{item.label}</a>)}<LanguageSwitch locale={locale} path={path} available={available}/><SubscribeLink className="nav-cta" locale={locale} placement="header">{t.nav.youtube}</SubscribeLink></nav>
-    <details className="mobile-menu"><summary aria-label={t.nav.menu}><Menu size={24}/></summary><nav aria-label={t.nav.mobile}>{items.map(item => <a key={item.href} href={item.href}>{item.label}</a>)}<SubscribeLink locale={locale} placement="menu">{t.nav.youtube}</SubscribeLink><LanguageSwitch locale={locale} path={path} available={available}/></nav></details>
+    <details className="mobile-menu"><summary aria-label={t.nav.menu}><Menu size={24}/></summary><nav aria-label={t.nav.mobile}>{items.map(item => <a key={item.href} href={item.href}>{item.label}</a>)}<a href={subscribe}>{t.nav.subscribe}</a><LanguageSwitch locale={locale} path={path} available={available}/></nav></details>
   </header>;
 }
 
