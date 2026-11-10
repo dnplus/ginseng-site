@@ -1,6 +1,7 @@
 import { ArrowUpRight, Coffee, FlaskConical, Play, PlaySquare, Sparkles, Terminal, Users } from 'lucide-react';
 import { ContactForm, NewsletterForm } from './forms';
 import { external, SiteFooter, SiteHeader, SocialLinks } from './chrome';
+import { SubscribeLink } from './subscribe-link';
 import { dictionary, localePath, type Locale } from '@/lib/i18n';
 import { CHANNEL_URL, LAB, PA_CAFE_URL, type LabItem } from '@/lib/site';
 import { latestVideos, thumbnail, watchUrl, type Video } from '@/lib/youtube';
@@ -43,8 +44,7 @@ export async function Home({locale}: {locale: Locale}) {
     {...t.hub.lab, href: at('/lab'), icon: FlaskConical, external: false},
     {...t.hub.community, href: at('/community'), icon: Users, external: false},
   ];
-  // English visitors mostly arrive for PA Cafe and the tools; Chinese visitors mostly from YouTube.
-  const primary = locale === 'en' ? {href: PA_CAFE_URL, ...external} : {href: '#videos'};
+  // English visitors mostly arrive for PA Cafe and the tools; Chinese visitors mostly from YouTube, so we ask them to subscribe.
 
   return <>
     <a className="skip-link" href="#main">{t.skip}</a>
@@ -57,7 +57,9 @@ export async function Home({locale}: {locale: Locale}) {
             <h1 id="hero-title">{h.title[0]}<br/><span className="hero-highlight">{h.title[1]}</span></h1>
             <p className="hero-lead">{h.lead}</p>
             <div className="hero-actions">
-              <a className="button primary" {...primary}>{h.primary} <ArrowUpRight size={19}/></a>
+              {locale === 'en'
+                ? <a className="button primary" href={PA_CAFE_URL} {...external}>{h.primary} <ArrowUpRight size={19}/></a>
+                : <SubscribeLink className="button primary" locale={locale} placement="hero">{h.primary} <ArrowUpRight size={19}/></SubscribeLink>}
               <a className="button ghost" href="#contact">{h.secondary}</a>
             </div>
             <SocialLinks locale={locale}/>

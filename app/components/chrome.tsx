@@ -1,4 +1,5 @@
 import { ArrowUpRight, Camera, Globe, Menu, MessageCircle, PlaySquare, AtSign, ThumbsUp } from 'lucide-react';
+import { SubscribeLink } from './subscribe-link';
 import { dictionary, LANGUAGE_NAME, localePath, LOCALES, HTML_LANG, type Locale } from '@/lib/i18n';
 import { socials, type Social } from '@/lib/site';
 
@@ -37,7 +38,7 @@ export function SiteHeader({locale, path, available}: {locale: Locale; path: str
   const t = dictionary(locale), items = navItems(locale), subscribe = localePath(locale, '/newsletter');
   return <header className="header">
     <a href={localePath(locale, '/')} aria-label={t.homeLabel}><Plaque locale={locale}/></a>
-    <nav className="desktop-nav" aria-label={t.nav.main}>{items.map(item => <a key={item.href} href={item.href}>{item.label}</a>)}<LanguageSwitch locale={locale} path={path} available={available}/><a className="nav-cta" href={subscribe}>{t.nav.subscribe}</a></nav>
+    <nav className="desktop-nav" aria-label={t.nav.main}>{items.map(item => <a key={item.href} href={item.href}>{item.label}</a>)}<LanguageSwitch locale={locale} path={path} available={available}/><SubscribeLink className="nav-cta" locale={locale} placement="header">{t.nav.youtube}</SubscribeLink></nav>
     <details className="mobile-menu"><summary aria-label={t.nav.menu}><Menu size={24}/></summary><nav aria-label={t.nav.mobile}>{items.map(item => <a key={item.href} href={item.href}>{item.label}</a>)}<a href={subscribe}>{t.nav.subscribe}</a><LanguageSwitch locale={locale} path={path} available={available}/></nav></details>
   </header>;
 }

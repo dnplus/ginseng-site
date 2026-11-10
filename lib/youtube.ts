@@ -1,4 +1,6 @@
 export const CHANNEL_URL = 'https://www.youtube.com/@GinsengTryCatch';
+/** The site's main call to action: YouTube asks the visitor to confirm the subscription right away. */
+export const SUBSCRIBE_URL = `${CHANNEL_URL}?sub_confirmation=1`;
 const FEED_URL = 'https://www.youtube.com/feeds/videos.xml?channel_id=UC-hFgSev3WsmCOQT_rqm6gQ';
 
 export type Video = {id: string; title: string; summary: string; published: string | null; publishedLabel?: string; views: number | null; isFallback?: boolean};

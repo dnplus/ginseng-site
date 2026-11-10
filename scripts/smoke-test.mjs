@@ -76,6 +76,19 @@ try {
   await page('/privacy', '你的資料，只用在說好的地方。');
   const english = await page('/en', "Hi, I'm Ginseng.");
   assert.ok(english.includes('<html lang="en"') && english.includes('Collaboration form') && english.includes('Newsletter signup'), 'English home renders in English with both forms.');
+  const subscribe = 'https://www.youtube.com/@GinsengTryCatch?sub_confirmation=1';
+  const anchors = source => [...source.matchAll(/<a\b[^>]*>/g)].map(([tag]) => tag);
+  const hasClass = (tag, name) => new RegExp(`class="(?:[^"]* )?${name}(?: [^"]*)?"`).test(tag);
+  const href = tag => tag?.match(/href="([^"]*)"/)?.[1]?.replaceAll('&amp;', '&');
+  const firstPrimary = source => anchors(source).find(tag => hasClass(tag, 'button') && hasClass(tag, 'primary'));
+  assert.equal(href(firstPrimary(html)), subscribe, 'The Chinese hero button subscribes on YouTube.');
+  assert.equal(href(firstPrimary(english)), 'https://pacafe.dnplus.dev', 'The English hero button stays PA Cafe.');
+  for (const [path, source] of [['/', html], ['/en', english]]) {
+    const cta = anchors(source).filter(tag => hasClass(tag, 'nav-cta'));
+    assert.equal(cta.length, 1, `${path} has one header subscribe button`);
+    assert.equal(href(cta[0]), subscribe, `${path} header button subscribes on YouTube`);
+    assert.match(cta[0], /target="_blank"/, `${path} header button opens a new tab`);
+  }
   assert.ok(html.includes('<html lang="zh-Hant-TW"') && /hreflang="en" href="[^"]*\/en"/i.test(html), 'Home declares its language and links the English version.');
   await page('/lab', '做出來，先放這裡。');
   await page('/en/lab', 'Built it? It goes here first.');

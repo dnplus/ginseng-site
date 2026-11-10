@@ -44,7 +44,7 @@ export function alternates(locale: Locale, path: string, available: readonly Loc
 const zh = {
   skip: '跳到主要內容',
   homeLabel: '人蔘 Try Catch 首頁',
-  nav: {projects: '專案', lab: '實驗室', videos: '影片', blog: '文章', community: '社群', contact: '合作', subscribe: '訂閱電子報', menu: '開啟導覽', main: '主要導覽', mobile: '手機導覽'},
+  nav: {projects: '專案', lab: '實驗室', videos: '影片', blog: '文章', community: '社群', contact: '合作', subscribe: '訂閱電子報', youtube: '訂閱 YouTube', menu: '開啟導覽', main: '主要導覽', mobile: '手機導覽'},
   language: {label: '切換語言', suggest: '這頁也有中文版'},
   footer: {tagline: '少一點內捲，多一點外掛。', privacy: '隱私說明', nav: '社群與網站資訊'},
   meta: {
@@ -57,7 +57,7 @@ const zh = {
     hello: '嗨，我是人蔘。',
     title: ['把好奇心，', '做成有用的東西。'],
     lead: '技術主管，也是每天在 Try…Catch 裡打滾的創作者。研究 AI，把它放進真實工作，再把踩過的坑整理給你。',
-    primary: '看最新影片', secondary: '聊聊合作',
+    primary: '訂閱 YouTube', secondary: '聊聊合作',
     socials: '追蹤人蔘的社群帳號',
     latest: '最新影片',
     mascotNote: '本人，大概長這樣',
@@ -188,7 +188,7 @@ type Dictionary = typeof zh;
 const en: Dictionary = {
   skip: 'Skip to main content',
   homeLabel: 'Ginseng Try Catch home',
-  nav: {projects: 'Projects', lab: 'Lab', videos: 'Videos', blog: 'Writing', community: 'Community', contact: 'Work with me', subscribe: 'Newsletter', menu: 'Open navigation', main: 'Main navigation', mobile: 'Mobile navigation'},
+  nav: {projects: 'Projects', lab: 'Lab', videos: 'Videos', blog: 'Writing', community: 'Community', contact: 'Work with me', subscribe: 'Newsletter', youtube: 'Subscribe on YouTube', menu: 'Open navigation', main: 'Main navigation', mobile: 'Mobile navigation'},
   language: {label: 'Change language', suggest: 'This page is also available in English'},
   footer: {tagline: 'Less grind, more power-ups.', privacy: 'Privacy', nav: 'Social and site information'},
   meta: {
