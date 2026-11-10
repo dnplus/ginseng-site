@@ -71,11 +71,33 @@ async function page(urlPath, text) {
 
 try {
   const html = await page('/', '嗨，我是人蔘。');
-  assert.ok(html.includes('商業合作表單') && html.includes('電子報訂閱'), 'Home includes both interactive forms.');
+  assert.ok(html.includes('電子報訂閱') && !html.includes('商業合作表單'), 'Home keeps the newsletter form; the collaboration form lives on /about.');
+  const subscribe = 'https://www.youtube.com/@GinsengTryCatch?sub_confirmation=1';
+  const anchors = source => [...source.matchAll(/<a\b[^>]*>/g)].map(([tag]) => tag);
+  const hasClass = (tag, name) => new RegExp(`class="(?:[^"]* )?${name}(?: [^"]*)?"`).test(tag);
+  const href = tag => tag.match(/href="([^"]*)"/)?.[1]?.replaceAll('&amp;', '&');
+  const firstPrimary = source => anchors(source).find(tag => hasClass(tag, 'button') && hasClass(tag, 'primary'));
+  const sectionOrder = source => [...source.matchAll(/<(?:main|section)\b[^>]*\bid="([^"]+)"/g)].map(([, id]) => id);
+  assert.equal(href(firstPrimary(html)), subscribe, 'The Chinese hero button subscribes on YouTube.');
+  assert.deepEqual(sectionOrder(html), ['main', 'projects', 'videos', 'newsletter'], 'Home order: latest video (hero), Lab, more videos, newsletter.');
+  assert.ok(!/<iframe[^>]+youtube/i.test(html), 'The home page renders a click-to-play poster, not a YouTube iframe.');
+  assert.ok(/<button[^>]*class="thumb poster"/.test(html), 'The latest video is a click-to-play poster.');
   assert.ok(!/(?:src|href)="\/(?:@vite\/|@id\/)/.test(html), 'Run this smoke test against the built Worker, not the Vite development server.');
   await page('/privacy', '你的資料，只用在說好的地方。');
   const english = await page('/en', "Hi, I'm Ginseng.");
-  assert.ok(english.includes('<html lang="en"') && english.includes('Collaboration form') && english.includes('Newsletter signup'), 'English home renders in English with both forms.');
+  assert.ok(english.includes('<html lang="en"') && english.includes('Newsletter signup'), 'English home renders in English with the newsletter form.');
+  assert.equal(href(firstPrimary(english)), 'https://pacafe.dnplus.dev', 'The English hero button stays PA Cafe.');
+  assert.deepEqual(sectionOrder(english), ['main', 'projects', 'videos', 'newsletter'], 'English home has the same order.');
+  for (const [path, source] of [['/', html], ['/en', english], ['/lab', await page('/lab', '做出來，先放這裡。')], ['/en/blog', await page('/en/blog', 'The written-down part.')]]) {
+    const cta = anchors(source).filter(tag => hasClass(tag, 'nav-cta'));
+    assert.equal(cta.length, 1, `${path} has one header subscribe button`);
+    assert.equal(href(cta[0]), subscribe, `${path} header button subscribes on YouTube`);
+    assert.match(cta[0], /target="_blank"/, `${path} header button opens a new tab`);
+  }
+  const about = await page('/about', '一半技術人，');
+  assert.ok(about.includes('商業合作表單') && about.includes('id="contact"'), '/about carries the collaboration form at #contact.');
+  const englishAbout = await page('/en/about', 'Half engineer,');
+  assert.ok(englishAbout.includes('Collaboration form'), '/en/about carries the collaboration form.');
   assert.ok(html.includes('<html lang="zh-Hant-TW"') && /hreflang="en" href="[^"]*\/en"/i.test(html), 'Home declares its language and links the English version.');
   await page('/lab', '做出來，先放這裡。');
   await page('/en/lab', 'Built it? It goes here first.');

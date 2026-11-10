@@ -53,3 +53,24 @@ test('a post knows its explicit cover and its first site image, so every list ca
   assert.equal(parsePost('/content/posts/zh-TW/x.md', post('title: X\ndate: 2026-10-31')).firstImage, null);
   assert.throws(() => parsePost('/content/posts/zh-TW/x.md', post('title: X\ndate: 2026-10-31\ncover: https://example.com/a.png')), /cover/);
 });
+
+test('a video finds its article: same language first, then the default language', () => {
+  const index = indexPosts({
+    '/content/posts/zh-TW/ep079.md': post('title: 中文\ndate: 2026-10-18\nyoutube: abcdefghijk'),
+    '/content/posts/en/ep079.md': post('title: English\ndate: 2026-10-20\nyoutube: abcdefghijk\ntranslatedFrom: zh-TW'),
+    '/content/posts/zh-TW/ep080.md': post('title: 只有中文\ndate: 2026-10-25\nyoutube: zh-only-123'),
+  });
+  assert.equal(index.video('abcdefghijk', 'en')?.locale, 'en');
+  assert.equal(index.video('abcdefghijk', 'zh-TW')?.locale, 'zh-TW');
+  assert.equal(index.video('zh-only-123', 'en')?.locale, 'zh-TW', 'an untranslated episode still links to its Mandarin article');
+  assert.equal(index.video('not-a-video', 'zh-TW'), null);
+});
+
+test('the latest episode in the repository (ep095) links to its article', async () => {
+  const {readdirSync, readFileSync} = await import('node:fs');
+  const root = new URL('../content/posts/', import.meta.url);
+  const files: Record<string, string> = {};
+  for (const locale of readdirSync(root)) for (const name of readdirSync(new URL(`${locale}/`, root)).filter(each => each.endsWith('.md')))
+    files[`/content/posts/${locale}/${name}`] = readFileSync(new URL(`${locale}/${name}`, root), 'utf8');
+  assert.equal(indexPosts(files).video('2QEyUXbNedY', 'zh-TW')?.slug, 'ep095');
+});

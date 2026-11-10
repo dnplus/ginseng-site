@@ -18,7 +18,7 @@ export const gtmSnippet = (id: string) =>
   `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${id}');`;
 
 type DataLayerWindow = Window & { dataLayer?: unknown[] };
-export type AnalyticsEvent = 'newsletter_signup' | 'contact_submit';
+export type AnalyticsEvent = 'newsletter_signup' | 'contact_submit' | 'youtube_subscribe_click';
 
 /** Push a conversion to GTM's dataLayer. Never include the email, name or message: only what GA4 should count. */
 export function track(event: AnalyticsEvent, params: Record<string, string> = {}) {

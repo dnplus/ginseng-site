@@ -1,4 +1,6 @@
 export const CHANNEL_URL = 'https://www.youtube.com/@GinsengTryCatch';
+/** The site's main call to action: YouTube asks the visitor to confirm the subscription right away. */
+export const SUBSCRIBE_URL = `${CHANNEL_URL}?sub_confirmation=1`;
 const FEED_URL = 'https://www.youtube.com/feeds/videos.xml?channel_id=UC-hFgSev3WsmCOQT_rqm6gQ';
 
 export type Video = {id: string; title: string; summary: string; published: string | null; publishedLabel?: string; views: number | null; isFallback?: boolean};
@@ -124,3 +126,5 @@ export async function latestVideos(fetcher: typeof fetch = fetch): Promise<Video
 
 export const thumbnail = (id: string, size: 'maxresdefault' | 'mqdefault' = 'maxresdefault') => `https://i.ytimg.com/vi/${id}/${size}.jpg`;
 export const watchUrl = (id: string) => `https://www.youtube.com/watch?v=${id}`;
+/** The privacy-enhanced player, loaded only after the visitor presses play. */
+export const embedUrl = (id: string) => `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0`;

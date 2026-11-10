@@ -1,7 +1,10 @@
-import { ArrowUpRight, Coffee, FlaskConical, Play, PlaySquare, Sparkles, Terminal, Users } from 'lucide-react';
-import { ContactForm, NewsletterForm } from './forms';
+import { ArrowUpRight, Coffee, PlaySquare, Sparkles, Terminal } from 'lucide-react';
+import { NewsletterForm } from './forms';
 import { external, SiteFooter, SiteHeader, SocialLinks } from './chrome';
+import { SubscribeLink, VideoFacade } from './youtube';
+import { postPath } from '@/lib/blog';
 import { dictionary, localePath, type Locale } from '@/lib/i18n';
+import { posts } from '@/lib/posts';
 import { CHANNEL_URL, LAB, PA_CAFE_URL, type LabItem } from '@/lib/site';
 import { latestVideos, thumbnail, watchUrl, type Video } from '@/lib/youtube';
 
@@ -26,6 +29,12 @@ export function LabCard({item, locale, headingLevel = 3}: {item: LabItem; locale
   </article>;
 }
 
+/** Where a video title goes: its article on this site when there is one, otherwise YouTube. */
+function videoLink(video: Video, locale: Locale) {
+  const post = posts.video(video.id, locale);
+  return post ? {href: localePath(post.locale, postPath(post))} : {href: watchUrl(video.id), ...external};
+}
+
 export async function Home({locale}: {locale: Locale}) {
   const t = dictionary(locale), h = t.home, at = (path: string) => localePath(locale, path);
   const views = new Intl.NumberFormat(locale);
@@ -37,14 +46,8 @@ export async function Home({locale}: {locale: Locale}) {
   const list = rest.slice(0, 4);
   const shown = [featured, ...list];
   const popular = shown.every(video => video.views !== null) ? shown.reduce((top, video) => (video.views! > top.views! ? video : top)) : null;
-  const hub = [
-    {...t.hub.youtube, href: CHANNEL_URL, icon: PlaySquare, external: true},
-    {...t.hub.pacafe, href: PA_CAFE_URL, icon: Coffee, external: true},
-    {...t.hub.lab, href: at('/lab'), icon: FlaskConical, external: false},
-    {...t.hub.community, href: at('/community'), icon: Users, external: false},
-  ];
-  // English visitors mostly arrive for PA Cafe and the tools; Chinese visitors mostly from YouTube.
-  const primary = locale === 'en' ? {href: PA_CAFE_URL, ...external} : {href: '#videos'};
+  // Chinese visitors mostly come from YouTube, so the hero asks them to subscribe; English visitors mostly arrive for PA Cafe.
+  const primary = <>{h.primary} <ArrowUpRight size={19}/></>;
 
   return <>
     <a className="skip-link" href="#main">{t.skip}</a>
@@ -52,42 +55,28 @@ export async function Home({locale}: {locale: Locale}) {
       <div className="panel">
         <SiteHeader locale={locale} path="/"/>
         <main id="main" className="hero" aria-labelledby="hero-title">
-          <div className="hero-copy">
+          <article className="hero-video" aria-labelledby="latest-title">
+            <VideoFacade id={featured.id} title={featured.title} label={h.play(featured.title)}/>
+            <p className="meta">{h.latest}{meta(featured) ? ` · ${meta(featured)}` : ''}{popular?.id === featured.id && <em className="tag">{h.popular}</em>}</p>
+            <h2 id="latest-title" lang="zh-Hant-TW"><a {...videoLink(featured, locale)}>{featured.title}</a></h2>
+            {featured.summary && <p className="hero-video-summary" lang="zh-Hant-TW">{featured.summary}</p>}
+          </article>
+          <div className="hero-card">
+            <img className="hero-mascot" src="/assets/ginseng-cutout.webp" alt="" width="900" height="900" loading="lazy"/>
             <p className="hello">{h.hello}</p>
             <h1 id="hero-title">{h.title[0]}<br/><span className="hero-highlight">{h.title[1]}</span></h1>
             <p className="hero-lead">{h.lead}</p>
             <div className="hero-actions">
-              <a className="button primary" {...primary}>{h.primary} <ArrowUpRight size={19}/></a>
-              <a className="button ghost" href="#contact">{h.secondary}</a>
+              {locale === 'en'
+                ? <a className="button primary" href={PA_CAFE_URL} {...external}>{primary}</a>
+                : <SubscribeLink className="button primary" locale={locale} placement="hero">{primary}</SubscribeLink>}
+              <a className="button ghost" href={`${at('/about')}#contact`}>{h.secondary}</a>
             </div>
             <SocialLinks locale={locale}/>
-            <a className="fresh" href={watchUrl(featured.id)} {...external}>
-              <img src={thumbnail(featured.id, 'mqdefault')} alt="" width="320" height="180" loading="lazy"/>
-              <span><small>{h.latest}{videoAge(featured) ? `・${videoAge(featured)}` : ''}</small>{featured.title}</span>
-            </a>
-          </div>
-          <div className="mascot" aria-hidden="true">
-            <span className="note">{h.mascotNote}<svg viewBox="0 0 60 30" aria-hidden="true"><path d="M3 22C17 8 36 6 55 14M55 14l-11-7M55 14l-12 4"/></svg></span>
-            <img src="/assets/ginseng-cutout.webp" alt="" width="900" height="900" fetchPriority="high"/>
           </div>
         </main>
       </div>
     </div>
-
-    <section className="hub" id="start" aria-labelledby="hub-title">
-      <div className="wrap">
-        <p className="section-sticker">{h.hubSticker}</p>
-        <h2 id="hub-title">{h.hubTitle}</h2>
-        <p className="projects-intro">{h.hubIntro}</p>
-        <ul className="hub-grid">{hub.map(card => { const Icon = card.icon; return <li key={card.title}>
-          <a className="hub-card" href={card.href} {...(card.external ? external : {})}>
-            <span className="project-icon"><Icon size={26}/></span>
-            <small>{card.kicker}</small><h3>{card.title}</h3><p>{card.body}</p>
-            <span className="hub-cta">{card.cta} <ArrowUpRight size={16}/></span>
-          </a>
-        </li>; })}</ul>
-      </div>
-    </section>
 
     <section className="projects" id="projects" aria-labelledby="projects-title">
       <div className="wrap">
@@ -102,57 +91,14 @@ export async function Home({locale}: {locale: Locale}) {
       <div className="wrap">
         <div className="videos-head">
           <div><p className="section-sticker">{h.videosSticker}</p><h2 id="videos-title">{h.videosTitle}</h2><p>{h.videosIntro}{locale === 'en' ? ' ' : ''}{featured.isFallback ? h.videosFallback : h.videosLive}</p></div>
-          <a className="pill-link" href={CHANNEL_URL} {...external}>{h.channel} <ArrowUpRight size={17}/></a>
+          <a className="pill-link" href={CHANNEL_URL} {...external}><PlaySquare size={17}/>{h.channel} <ArrowUpRight size={17}/></a>
         </div>
-        <div className="videos-grid">
-          <a className="feature" href={watchUrl(featured.id)} {...external}>
-            <span className="thumb"><img src={thumbnail(featured.id)} alt="" width="1280" height="720" loading="lazy"/><i className="play"><Play size={26} fill="currentColor"/></i>{popular?.id === featured.id && <em className="tag">{h.popular}</em>}</span>
-            <span className="meta">{meta(featured)}</span>
-            <h3 lang="zh-Hant-TW">{featured.title}</h3>
-            {featured.summary && <p lang="zh-Hant-TW">{featured.summary}</p>}
-          </a>
-          <ul className="video-list">
-            {list.map(video => <li key={video.id}><a href={watchUrl(video.id)} {...external}>
-              <span className="thumb"><img src={thumbnail(video.id, 'mqdefault')} alt="" width="320" height="180" loading="lazy"/></span>
-              <span><h3 lang="zh-Hant-TW">{video.title}</h3><span className="meta">{meta(video)}</span>{popular?.id === video.id && <em className="tag">{h.popular}</em>}</span>
-            </a></li>)}
-          </ul>
-        </div>
-      </div>
-    </section>
-
-    <section className="about" id="about" aria-labelledby="about-title">
-      <div className="wrap about-grid">
-        <div className="about-copy">
-          <p className="section-sticker">{h.aboutSticker}</p>
-          <h2 id="about-title">{h.aboutTitle[0]}<br/>{h.aboutTitle[1]}</h2>
-          <p className="lead">{h.aboutLead}</p>
-          {h.aboutBody.map(paragraph => <p key={paragraph}>{paragraph}</p>)}
-        </div>
-        <figure className="code-card">
-          <div className="code-bar" aria-hidden="true"><i/><i/><i/><span>life.ts</span></div>
-          <pre aria-hidden="true"><code>{[
-            <><span className="k">try</span> {'{'}</>,
-            <>  <span className="f">{h.codeLife}</span>();</>,
-            <>{'}'} <span className="k">catch</span> (e) {'{'}</>,
-            <>  <span className="c">{h.codeComment}</span></>,
-            <>  <span className="f">{h.codeCatch}</span>(e);</>,
-            <>{'}'}</>,
-          ].map((line, index) => <span className="line" key={index}>{line}</span>)}</code></pre>
-          <figcaption>{h.codeCaption}</figcaption>
-        </figure>
-      </div>
-    </section>
-
-    <section className="contact" id="contact" aria-labelledby="contact-title">
-      <div className="wrap contact-grid">
-        <div className="contact-copy">
-          <p className="section-sticker">{h.contactSticker}</p>
-          <h2 id="contact-title">{h.contactTitle[0]}<br/>{h.contactTitle[1]}</h2>
-          <p className="lead">{h.contactLead}</p>
-          <dl className="services">{h.services.map(([title, body]) => <div key={title}><dt>{title}</dt><dd>{body}</dd></div>)}</dl>
-        </div>
-        <div className="form-card"><ContactForm locale={locale}/></div>
+        <ul className="video-grid">
+          {list.map(video => <li key={video.id}><a {...videoLink(video, locale)}>
+            <span className="thumb"><img src={thumbnail(video.id, 'mqdefault')} alt="" width="320" height="180" loading="lazy"/></span>
+            <div className="video-text"><h3 lang="zh-Hant-TW">{video.title}</h3><span className="meta">{meta(video)}</span>{popular?.id === video.id && <em className="tag">{h.popular}</em>}</div>
+          </a></li>)}
+        </ul>
       </div>
     </section>
 

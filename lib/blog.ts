@@ -103,6 +103,11 @@ export function indexPosts(files: Record<string, string>, includeDrafts = false)
     translations: (post: Post) => all.filter(other => other.slug === post.slug),
     /** The default-language post for a channel episode, falling back to any language. */
     episode: (number: number) => all.find(post => post.episode === number && post.locale === 'zh-TW') ?? all.find(post => post.episode === number) ?? null,
+    /** The article for a YouTube video: in `locale` if translated, else the default language, else any language. */
+    video: (id: string, locale: Locale) => {
+      const matches = all.filter(post => post.youtube === id);
+      return matches.find(post => post.locale === locale) ?? matches.find(post => post.locale === 'zh-TW') ?? matches[0] ?? null;
+    },
   };
 }
 
