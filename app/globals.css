@@ -388,6 +388,13 @@ a.hub-card:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(-
 .prose ul, .prose ol { padding-left: 1.4em; }
 .prose li + li { margin-top: .35em; }
 .prose img { margin-inline: auto; border: 2px solid var(--leaf-dk); border-radius: 14px; }
+.prose-sources { margin-top: 0; }
+/* AdSense unit: space reserved up front so the sources below do not jump when the ad fills in. */
+.article-ad { margin: 48px 0; }
+.article-ad-label { display: block; margin-bottom: 6px; font-size: 12px; letter-spacing: .08em; color: #263f3599; text-align: center; }
+.article-ad .adsbygoogle { min-height: 280px; }
+.article-ad .adsbygoogle[data-ad-status="unfilled"] { display: none !important; }
+.article-ad:has(.adsbygoogle[data-ad-status="unfilled"]) { display: none; }
 .prose blockquote { margin-inline: 0; padding: 4px 0 4px 20px; border-left: 4px solid var(--blush); color: var(--muted); }
 .prose code { padding: 1px 6px; border-radius: 6px; background: var(--leaf-lt); font-family: var(--code); font-size: .88em; }
 .prose pre { overflow-x: auto; padding: 18px 20px; border-radius: 14px; background: var(--night); color: var(--night-text); font-size: 15px; line-height: 1.6; }

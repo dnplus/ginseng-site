@@ -5,6 +5,9 @@ import { DEFAULT_LOCALE, dictionary, HTML_LANG, LOCALES, localePath, type Locale
 import { postPath, type Post } from '@/lib/blog';
 import { posts, renderMarkdown } from '@/lib/posts';
 import { thumbnail, watchUrl } from '@/lib/youtube';
+import { splitForAd } from '@/lib/ads';
+import { ArticleAd } from './ad-slot';
+import { env } from 'cloudflare:workers';
 
 const dateLabel = (date: string, locale: Locale) => new Intl.DateTimeFormat(locale, {dateStyle: 'long', timeZone: 'Asia/Taipei'}).format(new Date(`${date}T12:00:00+08:00`));
 
@@ -57,6 +60,9 @@ export function BlogPost({post}: {post: Post}) {
   const locale = post.locale, t = dictionary(locale).blog;
   const available = posts.translations(post).map(each => each.locale);
   const path = postPath(post);
+  // Like GTM, ads load only on the deployed https site, never in local development.
+  const ads = env.SITE_URL?.startsWith('https://') ?? false;
+  const html = renderMarkdown(post.body), [body, sources] = splitForAd(html);
   return <>
     <a className="skip-link" href="#main">{dictionary(locale).skip}</a>
     <PageTop locale={locale} path={path} available={available}/>
@@ -73,7 +79,11 @@ export function BlogPost({post}: {post: Post}) {
           <span className="thumb"><img src={thumbnail(post.youtube)} alt="" width="1280" height="720" fetchPriority="high"/><i className="play"><Play size={26} fill="currentColor"/></i></span>
           <span>{t.watch} <ArrowUpRight size={16}/></span>
         </a>}
-        <div className="prose" dangerouslySetInnerHTML={{__html: renderMarkdown(post.body)}}/>
+        {ads ? <>
+          <div className="prose" dangerouslySetInnerHTML={{__html: body}}/>
+          <ArticleAd label={t.ad}/>
+          {sources && <div className="prose prose-sources" dangerouslySetInnerHTML={{__html: sources}}/>}
+        </> : <div className="prose" dangerouslySetInnerHTML={{__html: html}}/>}
         {post.tags.length > 0 && <ul className="article-tags">{post.tags.map(tag => <li key={tag}>{tag}</li>)}</ul>}
       </article>
     </main>
