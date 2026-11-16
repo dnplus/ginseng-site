@@ -14,3 +14,19 @@ export function splitForAd(html: string): [string, string] {
   const match = SOURCES.exec(html);
   return match ? [html.slice(0, match.index), html.slice(match.index)] : [html, ''];
 }
+
+/** The one ads.txt line, served at ginseng.dnplus.dev/ads.txt (public/ads.txt) and at the root domain, which AdSense checks. */
+export const ADS_TXT = `google.com, ${ADSENSE_CLIENT.replace('ca-', '')}, DIRECT, f08c47fec0942fa0\n`;
+
+export const SITE_HOST = 'ginseng.dnplus.dev';
+export const ROOT_HOST = 'dnplus.dev';
+
+/**
+ * The root domain dnplus.dev has no site of its own. AdSense only registers root domains and verifies them through
+ * dnplus.dev/ads.txt, so that path answers directly; every other path moves permanently to the same path on this site.
+ */
+export function rootDomainResponse(url: URL): Response | null {
+  if (url.hostname !== ROOT_HOST) return null;
+  if (url.pathname === '/ads.txt') return new Response(ADS_TXT, {headers: {'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600'}});
+  return Response.redirect(`https://${SITE_HOST}${url.pathname}${url.search}`, 301);
+}

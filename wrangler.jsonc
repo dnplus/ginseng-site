@@ -3,7 +3,8 @@
   "name": "ginseng-try-catch",
   "main": "./worker.ts",
   "account_id": "7910ab8eac2e72cc2c36430f438df708",
-  "routes": [{"pattern": "ginseng.dnplus.dev", "custom_domain": true}],
+  // dnplus.dev only serves ads.txt (AdSense verifies the root domain) and redirects everything else here; see lib/ads.ts.
+  "routes": [{"pattern": "ginseng.dnplus.dev", "custom_domain": true}, {"pattern": "dnplus.dev", "custom_domain": true}],
   "compatibility_date": "2026-05-15",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,

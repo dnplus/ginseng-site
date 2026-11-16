@@ -59,7 +59,7 @@ pnpm test:smoke
 
 替換 D1 UUID 也會改變本地資料庫識別；之後繼續本地開發前請再執行 `pnpm db:migrate`，舊的本地測試資料不會自動移入新識別的資料庫。
 
-`pnpm deploy:dry-run` 只產生部署檢核產物。對外只有自訂網域 `ginseng.dnplus.dev`；`workers_dev`（`*.workers.dev` 網址）與 `preview_urls`（每版額外產生的網址）都關閉，避免出現未受 Access 保護的後台入口，部署用的 API token 也不需要帳號層級的 Workers 權限。
+`pnpm deploy:dry-run` 只產生部署檢核產物。對外只有自訂網域 `ginseng.dnplus.dev`，另外根網域 `dnplus.dev` 也掛在這個 Worker 上：只回 `/ads.txt`（AdSense 只收根網域，用它驗證），其他網址一律 301 轉到 `ginseng.dnplus.dev`（`lib/ads.ts`）；`workers_dev`（`*.workers.dev` 網址）與 `preview_urls`（每版額外產生的網址）都關閉，避免出現未受 Access 保護的後台入口，部署用的 API token 也不需要帳號層級的 Workers 權限。
 
 JWT 驗證會檢查 Cloudflare 公開金鑰簽章、issuer、AUD、有效期限及管理者 Email；不接受 caller 提供的 Email 或 Sites 登入標頭。設定缺漏或驗證失敗時後台一律拒絕，管理頁及匯出回應不會被快取。
 
