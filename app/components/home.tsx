@@ -1,4 +1,4 @@
-import { ArrowUpRight, Coffee, FlaskConical, Play, PlaySquare, Sparkles, Terminal, Users } from 'lucide-react';
+import { ArrowUpRight, Coffee, FlaskConical, Gamepad2, Play, PlaySquare, Sparkles, Terminal, Users } from 'lucide-react';
 import { ContactForm, NewsletterForm } from './forms';
 import { external, SiteFooter, SiteHeader, SocialLinks } from './chrome';
 import { SubscribeLink } from './subscribe-link';
@@ -6,7 +6,7 @@ import { dictionary, localePath, type Locale } from '@/lib/i18n';
 import { CHANNEL_URL, LAB, PA_CAFE_URL, type LabItem } from '@/lib/site';
 import { latestVideos, thumbnail, watchUrl, type Video } from '@/lib/youtube';
 
-const LAB_ICONS = {coffee: Coffee, sparkles: Sparkles, terminal: Terminal} as const;
+const LAB_ICONS = {coffee: Coffee, sparkles: Sparkles, terminal: Terminal, gamepad: Gamepad2} as const;
 
 function ago(iso: string, locale: Locale) {
   const relative = new Intl.RelativeTimeFormat(locale, {numeric: 'auto'});
@@ -20,8 +20,10 @@ function ago(iso: string, locale: Locale) {
 
 export function LabCard({item, locale, headingLevel = 3}: {item: LabItem; locale: Locale; headingLevel?: 2 | 3}) {
   const t = dictionary(locale), Icon = LAB_ICONS[item.icon], Heading = headingLevel === 2 ? 'h2' : 'h3';
-  return <article className={`project project-${item.id}`}>
-    <span className="project-icon"><Icon size={26}/></span>
+  return <article className={`project project-${item.id}${item.image ? ' has-shot' : ''}`}>
+    {item.image
+      ? <a className="project-shot" href={item.url} {...external} tabIndex={-1} aria-hidden="true"><img src={item.image} alt="" width="800" height="420" loading="lazy" decoding="async"/></a>
+      : <span className="project-icon"><Icon size={26}/></span>}
     <div><p className="project-kicker">{item.kicker[locale]}</p><Heading>{item.title[locale]}</Heading><p>{item.body[locale]}</p></div>
     <div className="project-links"><a className={item.featured ? 'button primary' : 'pill-link'} href={item.url} {...external}>{item.cta[locale]} <ArrowUpRight size={17}/></a>{item.video && <a className="quiet-link" href={watchUrl(item.video)} {...external}>{t.lab.watch}</a>}</div>
   </article>;

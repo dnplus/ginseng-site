@@ -143,7 +143,7 @@ const zh = {
   },
   lab: {
     title: '實驗室｜人蔘 Try Catch',
-    description: '人蔘做的小工具與實驗：PA Cafe、你的 AI 夥伴風格指南、Genio One，還有更多新點子。',
+    description: '人蔘做的小工具與實驗：PA Cafe、小遊戲 BARISTA BLAST!!、你的 AI 夥伴風格指南、Genio One，還有更多新點子。',
     sticker: '實驗室',
     heading: '做出來，先放這裡。',
     lead: '小工具、產品與各種實驗。有些會長成正式產品，有些就是好玩。新東西上線時，電子報會第一個通知你。',
@@ -288,7 +288,7 @@ const en: Dictionary = {
   },
   lab: {
     title: 'The Lab | Ginseng Try Catch',
-    description: 'Small tools and experiments by Ginseng: PA Cafe, the AI partner style guide, Genio One and more.',
+    description: 'Small tools and experiments by Ginseng: PA Cafe, the BARISTA BLAST!! mini-game, the AI partner style guide, Genio One and more.',
     sticker: 'The Lab',
     heading: 'Built it? It goes here first.',
     lead: 'Small tools, products and experiments. Some become real products, some are just for fun. The newsletter hears about new ones first.',
