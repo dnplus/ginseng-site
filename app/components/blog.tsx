@@ -2,7 +2,8 @@ import { ArrowLeft, ArrowUpRight, Play, Rss } from 'lucide-react';
 import { NewsletterSection } from './home';
 import { external, PageTop, SiteFooter } from './chrome';
 import { DEFAULT_LOCALE, dictionary, HTML_LANG, LOCALES, localePath, type Locale } from '@/lib/i18n';
-import { postImage, postPath, type Post } from '@/lib/blog';
+import { postImage, postPath, relatedPosts, type Post } from '@/lib/blog';
+import { postJsonLd, serializeJsonLd } from '@/lib/jsonld';
 import { posts, renderMarkdown } from '@/lib/posts';
 import { thumbnail, watchUrl } from '@/lib/youtube';
 import { splitForAd } from '@/lib/ads';
@@ -17,13 +18,14 @@ function PostThumb({post}: {post: Post}) {
   return <span className="thumb thumb-mascot"><img src="/assets/ginseng-cutout.webp" alt="" width="320" height="180" loading="lazy" decoding="async"/></span>;
 }
 
-function PostCard({post, locale}: {post: Post; locale: Locale}) {
+function PostCard({post, locale, headingLevel = 2}: {post: Post; locale: Locale; headingLevel?: 2 | 3}) {
   const t = dictionary(post.locale).blog;
+  const Heading = headingLevel === 3 ? 'h3' : 'h2';
   return <li><a className="post-card" href={localePath(post.locale, postPath(post))} lang={post.locale === locale ? undefined : HTML_LANG[post.locale]}>
     <PostThumb post={post}/>
     <span className="post-card-text">
       <small>{post.episode ? `${t.episode(post.episode)} · ` : ''}<time dateTime={post.date}>{dateLabel(post.date, post.locale)}</time></small>
-      <h2>{post.title}</h2>
+      <Heading>{post.title}</Heading>
       {post.summary && <p>{post.summary}</p>}
     </span>
   </a></li>;
@@ -59,10 +61,12 @@ export function BlogPost({post}: {post: Post}) {
   const locale = post.locale, t = dictionary(locale).blog;
   const available = posts.translations(post).map(each => each.locale);
   const path = postPath(post);
-  // Like GTM, ads load only on the deployed https site, never in local development.
   const ads = env.SITE_URL?.startsWith('https://') ?? false;
+  const origin = env.SITE_URL || 'https://ginseng.dnplus.dev';
+  const related = relatedPosts(post, posts.all);
   const html = renderMarkdown(post.body), [body, sources] = splitForAd(html);
   return <>
+    <script type="application/ld+json" dangerouslySetInnerHTML={{__html: serializeJsonLd(postJsonLd(post, origin))}}/>
     <a className="skip-link" href="#main">{dictionary(locale).skip}</a>
     <PageTop locale={locale} path={path} available={available}/>
     <main id="main" className="article-page">
@@ -85,6 +89,10 @@ export function BlogPost({post}: {post: Post}) {
         </> : <div className="prose" dangerouslySetInnerHTML={{__html: html}}/>}
         {post.tags.length > 0 && <ul className="article-tags">{post.tags.map(tag => <li key={tag}>{tag}</li>)}</ul>}
       </article>
+      {related.length > 0 && <section className="article-related" aria-labelledby="related-title">
+        <h2 id="related-title">{t.related}</h2>
+        <ul className="post-list">{related.map(each => <PostCard key={each.slug} post={each} locale={locale} headingLevel={3}/>)}</ul>
+      </section>}
     </main>
     <NewsletterSection locale={locale}/>
     <SiteFooter locale={locale} path={path} available={available}/>

@@ -71,6 +71,7 @@ async function page(urlPath, text) {
 
 try {
   const html = await page('/', '嗨，我是人蔘。');
+  assert.ok(html.includes('application/ld+json') && html.includes('"@type":"WebSite"'), 'Home emits WebSite JSON-LD.');
   assert.ok(html.includes('商業合作表單') && html.includes('電子報訂閱'), 'Home includes both interactive forms.');
   assert.ok(!/(?:src|href)="\/(?:@vite\/|@id\/)/.test(html), 'Run this smoke test against the built Worker, not the Vite development server.');
   await page('/privacy', '你的資料，只用在說好的地方。');
@@ -136,6 +137,8 @@ try {
   await page('/blog/ep087', '一天空轉 288 次');
   const ep093 = await page('/blog/ep093', '共同大腦');
   assert.match(ep093, /property="og:image" content="[^"]*\/blog\/ep093\/cover\.jpg"/, 'Custom cover is used for og:image.');
+  assert.ok(ep093.includes('"@type":"BlogPosting"') && ep093.includes('"@type":"BreadcrumbList"'), 'Article emits BlogPosting and BreadcrumbList JSON-LD.');
+  assert.ok(ep093.includes('相關文章') && ep093.includes('class="article-related"'), 'Article renders related posts section.');
   const missing = await fetch(`${origin}/blog/no-such-post`);
   assert.equal(missing.status, 404, 'Unknown posts are 404.');
   assert.ok((await missing.text()).includes('NotFoundException'), '404 renders branded not-found page.');

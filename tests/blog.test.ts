@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { indexPosts, parseFrontMatter, parsePost, postImage } from '../lib/blog.ts';
+import { indexPosts, parseFrontMatter, parsePost, postImage, relatedPosts } from '../lib/blog.ts';
+import { homeJsonLd, postJsonLd, serializeJsonLd } from '../lib/jsonld.ts';
 
 const post = (front: string, body = 'Body') => `---\n${front}\n---\n${body}`;
 
@@ -60,4 +61,29 @@ test('postImage prefers cover over youtube thumbnail over firstImage', () => {
   assert.equal(postImage({cover: null, youtube: 'SP-pwffKN3g', firstImage: '/blog/ep093/a.jpg'}, 'mqdefault'), 'https://i.ytimg.com/vi/SP-pwffKN3g/mqdefault.jpg');
   assert.equal(postImage({cover: null, youtube: null, firstImage: '/blog/ep093/a.jpg'}), '/blog/ep093/a.jpg');
   assert.equal(postImage({cover: null, youtube: null, firstImage: null}), null);
+});
+
+test('relatedPosts ranks same-locale posts by shared tags then newest date', () => {
+  const index = indexPosts({
+    '/content/posts/zh-TW/a.md': post('title: A\ndate: 2026-11-10\ntags: [Notion, MCP, Claude]'),
+    '/content/posts/zh-TW/b.md': post('title: B\ndate: 2026-11-01\ntags: [notion, mcp]'),
+    '/content/posts/zh-TW/c.md': post('title: C\ndate: 2026-11-09\ntags: [Claude]'),
+    '/content/posts/zh-TW/d.md': post('title: D\ndate: 2026-11-08\ntags: [Other]'),
+    '/content/posts/en/e.md': post('title: E\ndate: 2026-11-11\ntags: [Notion, MCP, Claude]'),
+  });
+  const target = index.find('zh-TW', 'a')!;
+  assert.deepEqual(relatedPosts(target, index.all, 3).map(each => each.slug), ['b', 'c', 'd']);
+});
+
+test('JSON-LD builders emit valid structured data and escape script-closing sequences', () => {
+  const parsed = parsePost('/content/posts/zh-TW/ep093.md', post('title: "A </script> B"\ndate: 2026-11-09\nsummary: Test\ncover: /blog/ep093/cover.jpg\nyoutube: SP-pwffKN3g\ntags: [Notion, MCP]'));
+  const ld = postJsonLd(parsed, 'https://ginseng.dnplus.dev/');
+  const posting = ld['@graph'][0] as Record<string, unknown>;
+  assert.equal(posting['@type'], 'BlogPosting');
+  assert.equal(posting.image, 'https://ginseng.dnplus.dev/blog/ep093/cover.jpg');
+  assert.equal((posting.video as Record<string, unknown>)['@type'], 'VideoObject');
+  assert.equal(ld['@graph'][1]['@type'], 'BreadcrumbList');
+  const serialized = serializeJsonLd(ld);
+  assert.ok(!serialized.includes('</script>'));
+  assert.equal(homeJsonLd('https://ginseng.dnplus.dev', 'zh-TW')['@graph'][0]['@type'], 'WebSite');
 });

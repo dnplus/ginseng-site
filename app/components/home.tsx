@@ -1,8 +1,10 @@
+import { env } from 'cloudflare:workers';
 import { ArrowUpRight, Coffee, FlaskConical, Gamepad2, Play, PlaySquare, Sparkles, Terminal, Users } from 'lucide-react';
 import { ContactForm, NewsletterForm } from './forms';
 import { external, SiteFooter, SiteHeader, SocialLinks } from './chrome';
 import { SubscribeLink } from './subscribe-link';
 import { dictionary, localePath, type Locale } from '@/lib/i18n';
+import { homeJsonLd, serializeJsonLd } from '@/lib/jsonld';
 import { CHANNEL_URL, LAB, PA_CAFE_URL, type LabItem } from '@/lib/site';
 import { latestVideos, thumbnail, watchUrl, type Video } from '@/lib/youtube';
 
@@ -46,9 +48,10 @@ export async function Home({locale}: {locale: Locale}) {
     {...t.hub.lab, href: at('/lab'), icon: FlaskConical, external: false},
     {...t.hub.community, href: at('/community'), icon: Users, external: false},
   ];
-  // English visitors mostly arrive for PA Cafe and the tools; Chinese visitors mostly from YouTube, so we ask them to subscribe.
+  const origin = env.SITE_URL || 'https://ginseng.dnplus.dev';
 
   return <>
+    <script type="application/ld+json" dangerouslySetInnerHTML={{__html: serializeJsonLd(homeJsonLd(origin, locale))}}/>
     <a className="skip-link" href="#main">{t.skip}</a>
     <div className="stage">
       <div className="panel">

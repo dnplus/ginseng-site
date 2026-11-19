@@ -112,3 +112,16 @@ export const postPath = (post: Pick<Post, 'slug'>) => `/blog/${post.slug}`;
 export function postImage(post: Pick<Post, 'cover' | 'youtube' | 'firstImage'>, youtubeSize: 'maxresdefault' | 'mqdefault' = 'maxresdefault'): string | null {
   return post.cover ?? (post.youtube ? thumbnail(post.youtube, youtubeSize) : post.firstImage);
 }
+
+export function relatedPosts(post: Post, all: readonly Post[], limit = 3): Post[] {
+  const tags = new Set(post.tags.map(tag => tag.toLowerCase()));
+  return all
+    .filter(other => other.locale === post.locale && other.slug !== post.slug)
+    .map(other => ({
+      post: other,
+      shared: other.tags.reduce((count, tag) => count + (tags.has(tag.toLowerCase()) ? 1 : 0), 0),
+    }))
+    .sort((a, b) => b.shared - a.shared || b.post.date.localeCompare(a.post.date) || a.post.slug.localeCompare(b.post.slug))
+    .slice(0, limit)
+    .map(entry => entry.post);
+}
