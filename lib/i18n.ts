@@ -114,6 +114,7 @@ const zh = {
     back: '所有文章',
     feed: 'RSS 訂閱',
     readMore: '閱讀全文',
+    related: '相關文章',
   },
   newsletter: {
     title: '電子報｜人蔘 Try Catch',
@@ -259,6 +260,7 @@ const en: Dictionary = {
     back: 'All articles',
     feed: 'RSS feed',
     readMore: 'Read',
+    related: 'Related articles',
   },
   newsletter: {
     title: 'Newsletter | Ginseng Try Catch',
