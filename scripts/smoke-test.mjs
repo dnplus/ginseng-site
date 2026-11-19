@@ -134,8 +134,22 @@ try {
     assert.ok(response.headers.get('location')?.startsWith(target), `${path} redirects to ${target}`);
   }
   await page('/blog/ep087', '一天空轉 288 次');
-  assert.equal((await fetch(`${origin}/blog/no-such-post`)).status, 404, 'Unknown posts are 404.');
-  await page('/unsubscribe', '先在這裡，下車也沒關係。');
+  const ep093 = await page('/blog/ep093', '共同大腦');
+  assert.match(ep093, /property="og:image" content="[^"]*\/blog\/ep093\/cover\.jpg"/, 'Custom cover is used for og:image.');
+  const missing = await fetch(`${origin}/blog/no-such-post`);
+  assert.equal(missing.status, 404, 'Unknown posts are 404.');
+  assert.ok((await missing.text()).includes('NotFoundException'), '404 renders branded not-found page.');
+  const robots = await fetch(`${origin}/robots.txt`);
+  assert.equal(robots.status, 200, 'robots.txt is served.');
+  const robotsText = await robots.text();
+  assert.ok(robotsText.includes('Sitemap:') && robotsText.includes('Disallow: /studio'), 'robots.txt advertises sitemap and disallows studio.');
+  const homeHead = await fetch(`${origin}/`);
+  assert.equal(homeHead.headers.get('x-content-type-options'), 'nosniff', 'HTML responses set X-Content-Type-Options.');
+  assert.equal(homeHead.headers.get('x-frame-options'), 'SAMEORIGIN', 'HTML responses set X-Frame-Options.');
+  assert.equal(homeHead.headers.get('referrer-policy'), 'strict-origin-when-cross-origin', 'Normal pages set strict-origin-when-cross-origin.');
+  const unsubRes = await fetch(`${origin}/unsubscribe`);
+  assert.equal(unsubRes.headers.get('referrer-policy'), 'no-referrer', 'Token pages keep no-referrer.');
+  assert.ok((await unsubRes.text()).includes('先在這裡，下車也沒關係。'), '/unsubscribe contains expected content');
   const assetPaths = [...html.matchAll(/\b(?:src|href)="([^"\s]+\.(?:css|js)(?:\?[^"\s]*)?)"/g)]
     .map(match => new URL(match[1].replaceAll('&amp;', '&'), origin))
     .filter(url => url.origin === origin);

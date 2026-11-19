@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { indexPosts, parseFrontMatter, parsePost } from '../lib/blog.ts';
+import { indexPosts, parseFrontMatter, parsePost, postImage } from '../lib/blog.ts';
 
 const post = (front: string, body = 'Body') => `---\n${front}\n---\n${body}`;
 
@@ -52,4 +52,12 @@ test('a post knows its explicit cover and its first site image, so every list ca
   assert.equal(covered.cover, '/blog/ep087/zh-TW-03.webp');
   assert.equal(parsePost('/content/posts/zh-TW/x.md', post('title: X\ndate: 2026-10-31')).firstImage, null);
   assert.throws(() => parsePost('/content/posts/zh-TW/x.md', post('title: X\ndate: 2026-10-31\ncover: https://example.com/a.png')), /cover/);
+});
+
+test('postImage prefers cover over youtube thumbnail over firstImage', () => {
+  assert.equal(postImage({cover: '/blog/ep093/cover.jpg', youtube: 'SP-pwffKN3g', firstImage: '/blog/ep093/a.jpg'}), '/blog/ep093/cover.jpg');
+  assert.equal(postImage({cover: null, youtube: 'SP-pwffKN3g', firstImage: '/blog/ep093/a.jpg'}), 'https://i.ytimg.com/vi/SP-pwffKN3g/maxresdefault.jpg');
+  assert.equal(postImage({cover: null, youtube: 'SP-pwffKN3g', firstImage: '/blog/ep093/a.jpg'}, 'mqdefault'), 'https://i.ytimg.com/vi/SP-pwffKN3g/mqdefault.jpg');
+  assert.equal(postImage({cover: null, youtube: null, firstImage: '/blog/ep093/a.jpg'}), '/blog/ep093/a.jpg');
+  assert.equal(postImage({cover: null, youtube: null, firstImage: null}), null);
 });

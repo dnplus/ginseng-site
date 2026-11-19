@@ -2,7 +2,7 @@ import { ArrowLeft, ArrowUpRight, Play, Rss } from 'lucide-react';
 import { NewsletterSection } from './home';
 import { external, PageTop, SiteFooter } from './chrome';
 import { DEFAULT_LOCALE, dictionary, HTML_LANG, LOCALES, localePath, type Locale } from '@/lib/i18n';
-import { postPath, type Post } from '@/lib/blog';
+import { postImage, postPath, type Post } from '@/lib/blog';
 import { posts, renderMarkdown } from '@/lib/posts';
 import { thumbnail, watchUrl } from '@/lib/youtube';
 import { splitForAd } from '@/lib/ads';
@@ -11,11 +11,10 @@ import { env } from 'cloudflare:workers';
 
 const dateLabel = (date: string, locale: Locale) => new Intl.DateTimeFormat(locale, {dateStyle: 'long', timeZone: 'Asia/Taipei'}).format(new Date(`${date}T12:00:00+08:00`));
 
-/** Every card gets a picture: an explicit cover, the video thumbnail, the post's first image, or the mascot. */
 function PostThumb({post}: {post: Post}) {
-  const src = post.cover ?? (post.youtube ? thumbnail(post.youtube, 'mqdefault') : post.firstImage);
-  if (src) return <span className="thumb"><img src={src} alt="" width="320" height="180" loading="lazy"/></span>;
-  return <span className="thumb thumb-mascot"><img src="/assets/ginseng-cutout.webp" alt="" width="320" height="180" loading="lazy"/></span>;
+  const src = postImage(post, 'mqdefault');
+  if (src) return <span className="thumb"><img src={src} alt="" width="320" height="180" loading="lazy" decoding="async"/></span>;
+  return <span className="thumb thumb-mascot"><img src="/assets/ginseng-cutout.webp" alt="" width="320" height="180" loading="lazy" decoding="async"/></span>;
 }
 
 function PostCard({post, locale}: {post: Post; locale: Locale}) {

@@ -1,4 +1,5 @@
 import { isLocale, LOCALES, type Locale } from './i18n.ts';
+import { thumbnail } from './youtube.ts';
 
 /**
  * Blog posts are Markdown files at `content/posts/<locale>/<slug>.md` with a small front matter block. A translation
@@ -107,3 +108,7 @@ export function indexPosts(files: Record<string, string>, includeDrafts = false)
 }
 
 export const postPath = (post: Pick<Post, 'slug'>) => `/blog/${post.slug}`;
+
+export function postImage(post: Pick<Post, 'cover' | 'youtube' | 'firstImage'>, youtubeSize: 'maxresdefault' | 'mqdefault' = 'maxresdefault'): string | null {
+  return post.cover ?? (post.youtube ? thumbnail(post.youtube, youtubeSize) : post.firstImage);
+}
