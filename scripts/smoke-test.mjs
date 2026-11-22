@@ -16,10 +16,15 @@ const run = promisify(execFile);
 const fixture = randomUUID();
 const email = `smoke-${fixture}@example.test`;
 const rejectedEmail = `rejected-${fixture}@example.test`;
+const cappedEmail = `capped-${fixture}@example.test`, staleEmail = `stale-${fixture}@example.test`, keptEmail = `kept-${fixture}@example.test`;
 const fixtureIp = `2001:db8:${fixture.slice(0, 4)}:${fixture.slice(9, 13)}::1`;
+// A second connection, so the per-address checks do not use up the first one's hourly limit.
+const cappedIp = `2001:db8:cafe:${fixture.slice(19, 23)}::1`;
+// Mirrors lib/rate-limit.ts for these fixture addresses: the limit counts an IPv6 /64, not a single address.
+const rateSubject = ip => `${ip.split('::')[0].split(':').map(group => parseInt(group, 16).toString(16)).join(':')}::/64`;
 const rateKeys = new Set();
 const sqlString = value => `'${value.replaceAll("'", "''")}'`;
-const fixtureEmails = [email, rejectedEmail].map(sqlString).join(',');
+const fixtureEmails = [email, rejectedEmail, cappedEmail, staleEmail, keptEmail].map(sqlString).join(',');
 
 async function d1(sql) {
   const { stdout } = await run(process.execPath, [
@@ -36,16 +41,17 @@ async function d1(sql) {
   return batches.flatMap(batch => batch.results ?? []);
 }
 
-function rememberRateKeys(action) {
+function rememberRateKeys(action, ip = fixtureIp) {
   const bucket = Math.floor(Date.now() / 3600000);
   // Include adjacent buckets in case a request crosses an hour boundary.
   for (const candidate of [bucket - 1, bucket, bucket + 1]) {
-    rateKeys.add(createHash('sha256').update(`${action}:${fixtureIp}:${candidate}`).digest('hex'));
+    rateKeys.add(createHash('sha256').update(`${action}:${rateSubject(ip)}:${candidate}`).digest('hex'));
   }
 }
 
 async function post(action, data, expected = 200, extraHeaders = {}) {
-  rememberRateKeys(action);
+  const ip = extraHeaders['CF-Connecting-IP'] ?? fixtureIp;
+  rememberRateKeys(action, ip);
   const response = await fetch(`${origin}/api/${action}`, {
     method: 'POST',
     headers: { Origin: origin, 'Content-Type': 'application/json', 'CF-Connecting-IP': fixtureIp, ...extraHeaders },
@@ -56,7 +62,7 @@ async function post(action, data, expected = 200, extraHeaders = {}) {
   const result = await response.json();
   if (expected === 200) assert.equal(result.ok, true, `${action} acknowledgment`);
   else assert.equal(typeof result.error, 'string', `${action} error message`);
-  rememberRateKeys(action);
+  rememberRateKeys(action, ip);
   return result;
 }
 
@@ -243,14 +249,57 @@ try {
   assert.ok(rejected.every(row => row.count === 0), 'Rejected and honeypot submissions save no records.');
   console.log('PASS consent, origin, content validation, and honeypot checks');
 
-  // Two accepted subscriptions above consumed the first two requests in this bucket.
-  for (let request = 3; request <= 12; request++) await post('subscribe', { email, consent: true });
+  // Two accepted subscriptions above consumed the first two requests in this bucket. Another address in the same IPv6
+  // /64 is the same connection: its requests count toward the same limit.
+  const neighbour = { 'CF-Connecting-IP': fixtureIp.replace(/::1$/, '::2:3') };
+  for (let request = 3; request <= 12; request++) await post('subscribe', { email, consent: true }, 200, request % 2 ? neighbour : {});
+  await post('subscribe', { email, consent: true }, 429, neighbour);
   await post('subscribe', { email, consent: true }, 429);
-  const limitKey = createHash('sha256').update(`subscribe:${fixtureIp}:${Math.floor(Date.now() / 3600000)}`).digest('hex');
+  const limitKey = createHash('sha256').update(`subscribe:${rateSubject(fixtureIp)}:${Math.floor(Date.now() / 3600000)}`).digest('hex');
   const limits = await d1(`SELECT count FROM rate_limits WHERE key = ${sqlString(limitKey)}`);
   assert.equal(limits.length, 1, 'Rate limit uses the fixture connection key.');
-  assert.equal(limits[0].count, 13, 'Thirteenth accepted-format attempt is rate limited.');
-  console.log('PASS per-connection subscription rate limit');
+  assert.equal(limits[0].count, 14, 'Every attempt past the twelfth is rate limited, whichever address in the /64 sends it.');
+  console.log('PASS per-connection subscription rate limit, shared across an IPv6 /64');
+
+  // Per-address limit on confirmation emails. Each send below is moved out of the 10-minute resend window by hand.
+  const fromCapped = { 'CF-Connecting-IP': cappedIp };
+  const ago = ms => new Date(Date.now() - ms).toISOString(), day = 24 * 3_600_000;
+  const cappedRow = async () => (await d1(`SELECT status, confirm_token, confirm_sends, unsubscribe_token FROM subscribers WHERE email = ${sqlString(cappedEmail)}`))[0];
+  const leaveResendWindow = () => d1(`UPDATE subscribers SET confirm_sent_at = ${sqlString(ago(11 * 60_000))} WHERE email = ${sqlString(cappedEmail)}`);
+  const unconfirmed = (address, pushedAt) => `(${[randomUUID(), address, 'pending', randomUUID(), 'smoke', ago(40 * day), ago(31 * day), 'zh-TW', 'website', randomUUID(), ago(31 * day), 'done'].map(sqlString).join(', ')}, ${pushedAt ? sqlString(pushedAt) : 'NULL'})`;
+  await d1(`INSERT INTO subscribers (id, email, status, unsubscribe_token, consent_version, created_at, updated_at, locale, source, confirm_token, confirm_sent_at, resend_sync, resend_synced_at) VALUES ${unconfirmed(staleEmail, null)}, ${unconfirmed(keptEmail, ago(35 * day))}`);
+  await post('subscribe', { email: cappedEmail, consent: true }, 200, fromCapped);
+  let latest = await cappedRow();
+  assert.equal(latest.confirm_sends, 1, 'The first confirmation email is counted.');
+  for (let send = 2; send <= 3; send++) {
+    await leaveResendWindow();
+    await post('subscribe', { email: cappedEmail, consent: true }, 200, fromCapped);
+    const row = await cappedRow();
+    assert.notEqual(row.confirm_token, latest.confirm_token, `Confirmation email ${send} goes out once the resend window has passed.`);
+    assert.equal(row.confirm_sends, send);
+    latest = row;
+  }
+  await leaveResendWindow();
+  await post('subscribe', { email: cappedEmail, consent: true }, 200, fromCapped);
+  const capped = await cappedRow();
+  assert.equal(capped.confirm_token, latest.confirm_token, 'A fourth confirmation email within a day is not sent.');
+  assert.equal(capped.confirm_sends, 3, 'The daily limit holds at three.');
+  await post('unsubscribe', { token: capped.unsubscribe_token }, 200, fromCapped);
+  await post('subscribe', { email: cappedEmail, consent: true }, 200, fromCapped);
+  const stillOut = await cappedRow();
+  assert.equal(stillOut.status, 'unsubscribed', 'Unsubscribing does not reopen the limit: the form cannot email the address again that day.');
+  assert.equal(stillOut.confirm_token, null);
+  await d1(`UPDATE subscribers SET confirm_window_at = ${sqlString(ago(25 * 3_600_000))} WHERE email = ${sqlString(cappedEmail)}`);
+  await post('subscribe', { email: cappedEmail, consent: true }, 200, fromCapped);
+  const reopened = await cappedRow();
+  assert.equal(reopened.status, 'pending', 'After the window the address can ask for a confirmation email again.');
+  assert.equal(reopened.confirm_sends, 1, 'The count restarts with the new window.');
+  assert.match(reopened.confirm_token, /^[0-9a-f-]{36}$/);
+  console.log('PASS per-address limit on confirmation emails');
+
+  const leftover = await d1(`SELECT email FROM subscribers WHERE email IN (${[staleEmail, keptEmail].map(sqlString).join(',')})`);
+  assert.deepEqual(leftover.map(row => row.email), [keptEmail], 'A signup that never confirmed is deleted 30 days after its last email; a row that was ever pushed to Resend is kept.');
+  console.log('PASS cleanup of signups that never confirmed');
 
   await post('unsubscribe', { token: initial[0].unsubscribe_token });
   const unsubscribed = await d1(`SELECT status FROM subscribers WHERE email = ${sqlString(email)}`);

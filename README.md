@@ -84,6 +84,12 @@ JWT 驗證會檢查 Cloudflare 公開金鑰簽章、issuer、AUD、有效期限�
 
 電子報採雙重確認（double opt-in，migration `0003`）：表單送出後訂閱者為 `pending`，系統以 `NEWSLETTER_EMAIL` binding（只允許 `ginseng@dnplus.dev` 寄件、不限收件人）寄確認信，點 `/newsletter/confirm` 的按鈕後才變成 `active`；連結 7 天有效，同一信箱 10 分鐘內不重寄。舊的 single opt-in 訂閱者維持 `active`。訂閱者會記錄語言（`locale`）與來源（`source`）。
 
+為了不讓訂閱表單被拿來轟炸別人的信箱（migration `0006`，數值在 `lib/newsletter-email.ts`）：
+
+- 同一個信箱 24 小時內最多寄 3 封確認信，不論是誰送出表單、信箱是待確認還是已退訂；超過後表單照樣回成功，但不寄信。
+- 表單限流（訂閱、合作等每個表單各自每小時 12 次）以連線計算：IPv4 算單一位址，IPv6 算整個 /64（`lib/rate-limit.ts`），換同一段裡的位址不會多出額度。
+- 從未確認過的訂閱，在最後一封確認信的 30 天後刪除。沒有排程，由後續的訂閱請求順手清理；曾經訂閱或退訂過的紀錄不會被刪。
+
 本站自己寄的信（確認信）都帶 `lib/newsletter-email.ts` 的 `listUnsubscribeHeaders()`（RFC 8058 一鍵退訂，目標是 `/api/unsubscribe/one-click`）。
 
 ### 用 Resend 群發
