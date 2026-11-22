@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
 import { message, requestLocale, type MessageKey } from './messages';
+import { rateLimitSubject } from './rate-limit';
 export class FormError extends Error {
   constructor(public key: MessageKey, public status = 400) { super(key); }
 }
@@ -51,9 +52,9 @@ export async function body(request: Request) {
 }
 export async function rateLimit(request: Request, action: string) {
   const db = database();
-  const ip = request.headers.get('cf-connecting-ip') || 'unknown';
+  const subject = rateLimitSubject(request.headers.get('cf-connecting-ip'));
   const bucket = Math.floor(Date.now() / 3600000);
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${action}:${ip}:${bucket}`));
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${action}:${subject}:${bucket}`));
   const key = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
   const result = await db.prepare('INSERT INTO rate_limits (key, count, expires_at) VALUES (?, 1, ?) ON CONFLICT(key) DO UPDATE SET count = count + 1 RETURNING count').bind(key, (bucket + 1) * 3600).first<{count: number}>();
   await db.prepare('DELETE FROM rate_limits WHERE expires_at < ?').bind(Math.floor(Date.now() / 1000)).run();

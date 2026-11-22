@@ -1,12 +1,14 @@
-import { ArrowUpRight, Coffee, FlaskConical, Play, PlaySquare, Sparkles, Terminal, Users } from 'lucide-react';
+import { env } from 'cloudflare:workers';
+import { ArrowUpRight, Coffee, FlaskConical, Gamepad2, Play, PlaySquare, Sparkles, Terminal, Users } from 'lucide-react';
 import { ContactForm, NewsletterForm } from './forms';
 import { external, SiteFooter, SiteHeader, SocialLinks } from './chrome';
 import { SubscribeLink } from './subscribe-link';
 import { dictionary, localePath, type Locale } from '@/lib/i18n';
+import { homeJsonLd, serializeJsonLd } from '@/lib/jsonld';
 import { CHANNEL_URL, LAB, PA_CAFE_URL, type LabItem } from '@/lib/site';
 import { latestVideos, thumbnail, watchUrl, type Video } from '@/lib/youtube';
 
-const LAB_ICONS = {coffee: Coffee, sparkles: Sparkles, terminal: Terminal} as const;
+const LAB_ICONS = {coffee: Coffee, sparkles: Sparkles, terminal: Terminal, gamepad: Gamepad2} as const;
 
 function ago(iso: string, locale: Locale) {
   const relative = new Intl.RelativeTimeFormat(locale, {numeric: 'auto'});
@@ -20,8 +22,10 @@ function ago(iso: string, locale: Locale) {
 
 export function LabCard({item, locale, headingLevel = 3}: {item: LabItem; locale: Locale; headingLevel?: 2 | 3}) {
   const t = dictionary(locale), Icon = LAB_ICONS[item.icon], Heading = headingLevel === 2 ? 'h2' : 'h3';
-  return <article className={`project project-${item.id}`}>
-    <span className="project-icon"><Icon size={26}/></span>
+  return <article className={`project project-${item.id}${item.image ? ' has-shot' : ''}`}>
+    {item.image
+      ? <a className="project-shot" href={item.url} {...external} tabIndex={-1} aria-hidden="true"><img src={item.image} alt="" width="800" height="420" loading="lazy" decoding="async"/></a>
+      : <span className="project-icon"><Icon size={26}/></span>}
     <div><p className="project-kicker">{item.kicker[locale]}</p><Heading>{item.title[locale]}</Heading><p>{item.body[locale]}</p></div>
     <div className="project-links"><a className={item.featured ? 'button primary' : 'pill-link'} href={item.url} {...external}>{item.cta[locale]} <ArrowUpRight size={17}/></a>{item.video && <a className="quiet-link" href={watchUrl(item.video)} {...external}>{t.lab.watch}</a>}</div>
   </article>;
@@ -44,9 +48,10 @@ export async function Home({locale}: {locale: Locale}) {
     {...t.hub.lab, href: at('/lab'), icon: FlaskConical, external: false},
     {...t.hub.community, href: at('/community'), icon: Users, external: false},
   ];
-  // English visitors mostly arrive for PA Cafe and the tools; Chinese visitors mostly from YouTube, so we ask them to subscribe.
+  const origin = env.SITE_URL || 'https://ginseng.dnplus.dev';
 
   return <>
+    <script type="application/ld+json" dangerouslySetInnerHTML={{__html: serializeJsonLd(homeJsonLd(origin, locale))}}/>
     <a className="skip-link" href="#main">{t.skip}</a>
     <div className="stage">
       <div className="panel">
@@ -64,7 +69,7 @@ export async function Home({locale}: {locale: Locale}) {
             </div>
             <SocialLinks locale={locale}/>
             <a className="fresh" href={watchUrl(featured.id)} {...external}>
-              <img src={thumbnail(featured.id, 'mqdefault')} alt="" width="320" height="180" loading="lazy"/>
+              <img src={thumbnail(featured.id, 'mqdefault')} alt="" width="320" height="180" loading="lazy" decoding="async"/>
               <span><small>{h.latest}{videoAge(featured) ? `・${videoAge(featured)}` : ''}</small>{featured.title}</span>
             </a>
           </div>
@@ -108,14 +113,14 @@ export async function Home({locale}: {locale: Locale}) {
         </div>
         <div className="videos-grid">
           <a className="feature" href={watchUrl(featured.id)} {...external}>
-            <span className="thumb"><img src={thumbnail(featured.id)} alt="" width="1280" height="720" loading="lazy"/><i className="play"><Play size={26} fill="currentColor"/></i>{popular?.id === featured.id && <em className="tag">{h.popular}</em>}</span>
+            <span className="thumb"><img src={thumbnail(featured.id)} alt="" width="1280" height="720" loading="lazy" decoding="async"/><i className="play"><Play size={26} fill="currentColor"/></i>{popular?.id === featured.id && <em className="tag">{h.popular}</em>}</span>
             <span className="meta">{meta(featured)}</span>
             <h3 lang="zh-Hant-TW">{featured.title}</h3>
             {featured.summary && <p lang="zh-Hant-TW">{featured.summary}</p>}
           </a>
           <ul className="video-list">
             {list.map(video => <li key={video.id}><a href={watchUrl(video.id)} {...external}>
-              <span className="thumb"><img src={thumbnail(video.id, 'mqdefault')} alt="" width="320" height="180" loading="lazy"/></span>
+              <span className="thumb"><img src={thumbnail(video.id, 'mqdefault')} alt="" width="320" height="180" loading="lazy" decoding="async"/></span>
               <span><h3 lang="zh-Hant-TW">{video.title}</h3><span className="meta">{meta(video)}</span>{popular?.id === video.id && <em className="tag">{h.popular}</em>}</span>
             </a></li>)}
           </ul>

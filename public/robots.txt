@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /studio
+Disallow: /api/
+Disallow: /unsubscribe
+Disallow: /newsletter/confirm
+Disallow: /en/newsletter/confirm
+
+Sitemap: https://ginseng.dnplus.dev/sitemap.xml

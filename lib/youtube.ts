@@ -101,9 +101,31 @@ export function parseChannelPage(html: string): Video[] {
   return [...videos.values()].slice(0, 5);
 }
 
+const CACHE_TTL_SECONDS = 15 * 60;
+const CACHE_KEY = 'https://youtube-cache.ginseng.dnplus.dev/latest-videos';
+
+function edgeCache(): Cache | null {
+  if (typeof caches === 'undefined') return null;
+  const store = (caches as unknown as {default?: Cache}).default;
+  return store ?? null;
+}
+
 let memo: {at: number; videos: Video[]} | undefined;
 export async function latestVideos(fetcher: typeof fetch = fetch): Promise<Video[]> {
-  if (memo && Date.now() - memo.at < 15 * 60_000) return memo.videos;
+  if (memo && Date.now() - memo.at < CACHE_TTL_SECONDS * 1000) return memo.videos;
+  const cache = fetcher === fetch ? edgeCache() : null;
+  if (cache) {
+    try {
+      const hit = await cache.match(CACHE_KEY);
+      if (hit) {
+        const cached: unknown = await hit.json();
+        if (Array.isArray(cached) && cached.length > 0) {
+          memo = {at: Date.now(), videos: cached as Video[]};
+          return cached as Video[];
+        }
+      }
+    } catch {}
+  }
   for (const source of [
     {url: FEED_URL, parse: parseFeed, name: 'RSS'},
     {url: `${CHANNEL_URL}/videos?hl=zh-TW`, parse: parseChannelPage, name: 'channel page'},
@@ -114,6 +136,13 @@ export async function latestVideos(fetcher: typeof fetch = fetch): Promise<Video
       const videos = source.parse(await response.text());
       if (!videos.length) throw new Error('empty video list');
       memo = {at: Date.now(), videos};
+      if (cache) {
+        try {
+          await cache.put(CACHE_KEY, new Response(JSON.stringify(videos), {
+            headers: {'Content-Type': 'application/json', 'Cache-Control': `public, max-age=${CACHE_TTL_SECONDS}`},
+          }));
+        } catch {}
+      }
       return videos;
     } catch (error) {
       console.error(`YouTube ${source.name} unavailable:`, error instanceof Error ? error.message : 'request failed');
