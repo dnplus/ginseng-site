@@ -7,6 +7,15 @@ const SENDER_NAME: Record<Locale, string> = {'zh-TW': '人蔘 Try Catch', en: 'G
 export const CONFIRM_TTL_MS = 7 * 24 * 3_600_000;
 /** A pending address gets at most one confirmation email per window, however often the form is sent. */
 export const CONFIRM_RESEND_MS = 10 * 60_000;
+/**
+ * And at most this many per window, whoever sends the form and whether the address is pending or unsubscribed, so the
+ * form cannot be used to flood someone's inbox. The window opens with an address's first email and the count restarts
+ * once it has passed.
+ */
+export const CONFIRM_WINDOW_LIMIT = 3;
+export const CONFIRM_WINDOW_MS = 24 * 3_600_000;
+/** An address that never confirmed is deleted this long after its last confirmation email. */
+export const PENDING_RETENTION_MS = 30 * 24 * 3_600_000;
 
 export const confirmUrl = (site: string, locale: Locale, token: string) => `${site}${localePath(locale, '/newsletter/confirm')}?token=${token}`;
 export const unsubscribeUrl = (site: string, token: string) => `${site}/unsubscribe?token=${token}`;
